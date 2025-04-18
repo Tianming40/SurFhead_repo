@@ -6,7 +6,7 @@
 
   <br>
 
-  [project](https://summertight.github.io/SurFhead) / [arxiv](https://arxiv.org/abs/2410.11682) / [OpenReview](https://openreview.net/forum?id=1x1gGg49jr) / [bibtex](assets/bibtex.bib)
+  [project](https://summertight.github.io/SurFhead_project) / [arxiv](https://arxiv.org/abs/2410.11682) / [OpenReview](https://openreview.net/forum?id=1x1gGg49jr) / [bibtex](assets/bibtex.bib)
 </div>
 
 ### Introduction
