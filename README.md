@@ -17,6 +17,16 @@ Authors: Jaeseong Lee*, Taewoong Kang*, Marcel C. Bühler, Min-Jung Kim, Sungwon
 
 ##### * denotes equal contribution
 
+## License
+
+> This code is licensed under [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/).
+>
+> This repository is a derivative work based on [GaussianAvatars]("https://github.com/ShenhanQian/GaussianAvatars") by Toyota Motor Europe NV/SA and its affiliated companies.
+>
+> All intellectual property rights of the original software remain with Toyota Motor Europe.  
+Commercial use of this derivative work is strictly prohibited without an express license agreement with Toyota Motor Europe.
+
+
 ### Installation
 
 We heavily followed [GaussianAvatars]("https://github.com/ShenhanQian/GaussianAvatars").
@@ -176,7 +186,8 @@ A complete evaluation on the validation set (novel-view synthesis) and test set 
   #### --SGs
   Use Spherical Gaussians for capturing Eyeball Specularities.
   #### --sg_type
-  Which SG type you want to use, ```SG``` or ```ASG```.
+  Which SG type you want to use, ```sg``` or ```asg``` or ```lasg```. 
+  ```lasg``` is our simplified version of ASG to only represent the white ample light with a monochrome channel.
   #### --DTF
   Use Jacobian Deformations or not.
   #### --lambda_normal_norm
