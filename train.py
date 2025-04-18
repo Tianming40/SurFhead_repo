@@ -180,8 +180,8 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
                 # breakpoint()
                 
                 normal = normal * ((((dir_pp_normalized * normal_normalised).sum(dim=-1) < 0) * 1 - 0.5) * 2)[...,None]
-                if pipe.rotSH:
-                    dir_pp_normalized = (gaussians.blended_R.permute(0,2,1) @ dir_pp_normalized[...,None]).squeeze(-1)
+           
+                dir_pp_normalized = (gaussians.blended_R.permute(0,2,1) @ dir_pp_normalized[...,None]).squeeze(-1)
             else:
                 dir_pp = (gaussians.get_xyz - viewpoint_cam.camera_center.repeat(gaussians.get_features.shape[0], 1).cuda())
                 dir_pp_normalized = dir_pp / dir_pp.norm(dim=1, keepdim=True)
@@ -190,9 +190,9 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
                 # breakpoint()
                 
                 normal = normal * ((((dir_pp_normalized * normal_normalised).sum(dim=-1) < 0) * 1 - 0.5) * 2)[...,None]
-                if pipe.rotSH:
-                    assert pipe.DTF
-                    dir_pp_normalized = (gaussians.face_R_mat[gaussians.binding].permute(0,2,1) @ dir_pp_normalized[...,None]).squeeze(-1)
+                
+                assert pipe.DTF
+                dir_pp_normalized = (gaussians.face_R_mat[gaussians.binding].permute(0,2,1) @ dir_pp_normalized[...,None]).squeeze(-1)
   
            
             if pipe.spec_only_eyeball:
@@ -538,8 +538,8 @@ def training_report(tb_writer, iteration, losses, elapsed, testing_iterations, s
                             normal_normalised=  F.normalize(scene.gaussians.get_normal,dim=-1).detach()
                             normal = scene.gaussians.get_normal
                             normal = normal * ((((dir_pp_normalized * normal_normalised).sum(dim=-1) < 0) * 1 - 0.5) * 2)[...,None]
-                            if renderArgs[0].rotSH:
-                                dir_pp_normalized = (scene.gaussians.blended_R.permute(0,2,1) @ dir_pp_normalized[...,None]).squeeze(-1)
+                            
+                            dir_pp_normalized = (scene.gaussians.blended_R.permute(0,2,1) @ dir_pp_normalized[...,None]).squeeze(-1)
 
                         else:
                             dir_pp = (scene.gaussians.get_xyz - viewpoint.camera_center.repeat(
@@ -548,8 +548,8 @@ def training_report(tb_writer, iteration, losses, elapsed, testing_iterations, s
                             normal_normalised=  F.normalize(scene.gaussians.get_normal,dim=-1).detach()
                             normal = scene.gaussians.get_normal
                             normal = normal * ((((dir_pp_normalized * normal_normalised).sum(dim=-1) < 0) * 1 - 0.5) * 2)[...,None]
-                            if renderArgs[0].rotSH:
-                                dir_pp_normalized = (scene.gaussians.face_R_mat[scene.gaussians.binding].permute(0,2,1) @ dir_pp_normalized[...,None]).squeeze(-1)
+                            
+                            dir_pp_normalized = (scene.gaussians.face_R_mat[scene.gaussians.binding].permute(0,2,1) @ dir_pp_normalized[...,None]).squeeze(-1)
                                 
                         if renderArgs[0].spec_only_eyeball:
                             mask = torch.isin(scene.gaussians.binding, scene.gaussians.flame_model.mask.f.eyeballs)

@@ -60,8 +60,6 @@ class ModelParams(ParamGroup):
         self.disable_flame_static_offset = False
         self.not_finetune_flame_params = False
         self.select_camera_id = -1
-        self.backface_culling_smooth = False
-        self.backface_culling_hard = False
         super().__init__(parser, "Loading Parameters", sentinel)
 
     def extract(self, args):
@@ -75,23 +73,15 @@ class PipelineParams(ParamGroup):
         self.compute_cov3D_python = False
         self.depth_ratio = 0.0
         self.debug = False
-        self.backface_culling_smooth_sigma = 1.0
-        self.tight_pruning = False
-        self.tight_pruning_threshold = 0.1
         self.train_kinematic = False
         self.DTF = False
         self.rm_bg = False
-        self.invT_Jacobian = False
         self.SGs = False
         self.sg_type = 'asg'
         self.detach_eyeball_geometry = False
         self.detach_teeth_geometry = False
-        self.spec_only_eyeball = False
-        self.spec_only_teeth = False
-        self.rotSH = False
         self.amplify_teeth_grad = False
         self.detach_boundary = False
-        self.train_kinematic_dist = False
         super().__init__(parser, "Pipeline Parameters")
 
 class OptimizationParams(ParamGroup):
@@ -143,16 +133,11 @@ class OptimizationParams(ParamGroup):
         self.lambda_blend_weight = 0.
         self.lambda_normal_norm = 0.
 
-        self.lambda_ids = 0.
-        self.half_res = False
         self.densification_type = 'arithmetic_mean'
 
         self.lambda_eye_alpha = 0.
-        # self.lambda_eye_scale = 0.
-        # self.lambda_teeth_alpha = 0.
-        self.lambda_laplacian_Jacobian = 0.
+
         self.specular_lr_max_steps = 300_000
-        self.lambda_erank = 0.
         super().__init__(parser, "Optimization Parameters")
 
 def get_combined_args(parser : ArgumentParser):
