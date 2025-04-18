@@ -1,0 +1,21 @@
+tqdm
+numpy==1.22.3
+matplotlib
+scipy
+chumpy
+tensorboard
+fvcore
+iopath
+plyfile
+tyro
+dearpygui
+roma
+mediapy
+trimesh
+kornia
+open3d==0.17.0
+opencv-python-headless==4.8.0.74
+git+https://github.com/NVlabs/nvdiffrast
+git+https://github.com/facebookresearch/pytorch3d.git
+submodules/diff-surfel-jacobian-rasterization
+# submodules/simple-knn - No need : Initialization with FLAME mesh faces
