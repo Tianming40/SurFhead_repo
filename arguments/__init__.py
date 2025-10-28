@@ -60,6 +60,8 @@ class ModelParams(ParamGroup):
         self.disable_flame_static_offset = False
         self.not_finetune_flame_params = False
         self.select_camera_id = -1
+        self.backface_culling_smooth = True
+        self.backface_culling_hard =  False
         super().__init__(parser, "Loading Parameters", sentinel)
 
     def extract(self, args):
