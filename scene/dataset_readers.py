@@ -231,7 +231,7 @@ def readCamerasFromTransforms(path, transformsfile, white_background, extension=
             mask_name = Path(mask_path).stem
             
             
-            mask_face_path = image_path.replace('images', 'binary_facer')
+            mask_face_path = image_path.replace('images', 'fg_masks')
             # breakpoint()
             mask_face_name = Path(mask_face_path).stem
             
