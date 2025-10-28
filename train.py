@@ -701,6 +701,45 @@ if __name__ == "__main__":
     # Initialize system state (RNG)
     safe_state(args.quiet)
 
+
+    # print parameters
+    print("\n" + "=" * 80)
+    print("TRAINING CONFIGURATION")
+    print("=" * 80)
+
+
+    model_args = lp.extract(args)
+    opt_args = op.extract(args)
+    pipe_args = pp.extract(args)
+
+    print("\n=== Model Parameters ===")
+    for attr in sorted(dir(model_args)):
+        if not attr.startswith('_'):
+            value = getattr(model_args, attr)
+            print(f"  {attr:30} : {value}")
+
+    print("\n=== Optimization Parameters ===")
+    for attr in sorted(dir(opt_args)):
+        if not attr.startswith('_'):
+            value = getattr(opt_args, attr)
+            print(f"  {attr:30} : {value}")
+
+    print("\n=== Pipeline Parameters ===")
+    for attr in sorted(dir(pipe_args)):
+        if not attr.startswith('_'):
+            value = getattr(pipe_args, attr)
+            print(f"  {attr:30} : {value}")
+
+    print("\n=== Other Parameters ===")
+    other_params = ['ip', 'port', 'debug_from', 'detect_anomaly', 'interval',
+                    'test_iterations', 'save_iterations', 'quiet', 'checkpoint_iterations', 'start_checkpoint']
+    for param in other_params:
+        if hasattr(args, param):
+            value = getattr(args, param)
+            print(f"  {param:30} : {value}")
+
+    print("=" * 80 + "\n")
+
     # Start GUI server, configure and run training
     network_gui.init(args.ip, args.port)
     torch.autograd.set_detect_anomaly(args.detect_anomaly)
