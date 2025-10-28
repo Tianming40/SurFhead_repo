@@ -61,7 +61,7 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
        
     
         gaussians = FlameGaussianModel(dataset.sh_degree, dataset.sg_degree, dataset.disable_flame_static_offset, dataset.not_finetune_flame_params, n_shape=n_shape, n_expr=n_expr, 
-            train_kinematic=pipe.train_kinematic, DTF = pipe.DTF, invT_Jacobian=pipe.invT_Jacobian,
+            train_kinematic=pipe.train_kinematic, DTF = pipe.DTF,
             densification_type=opt.densification_type, detach_eyeball_geometry = pipe.detach_eyeball_geometry)
         try:
             mesh_renderer = NVDiffRenderer()
@@ -479,9 +479,12 @@ def training_report(tb_writer, iteration, losses, elapsed, testing_iterations, s
             tb_writer.add_scalar('train_loss_patches/laplacian', losses['laplacian'].item(), iteration)
         if 'dynamic_offset_std' in losses:
             tb_writer.add_scalar('train_loss_patches/dynamic_offset_std', losses['dynamic_offset_std'].item(), iteration)
+
+        # underlyind loss specially for surfhead
+
+
         if 'alpha' in losses:
             tb_writer.add_scalar('train_loss_patches/alpha_loss', losses['alpha'].item(), iteration)
-    
         if 'normal' in losses:
             tb_writer.add_scalar('train_loss_patches/normal_loss', losses['normal'].item(), iteration)
         if 'surfel_normal_loss' in losses:
