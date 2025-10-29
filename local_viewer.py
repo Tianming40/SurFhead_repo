@@ -36,6 +36,14 @@ class PipelineConfig:
     tight_pruning_threshold : float = 0.0
     train_kinematic : bool = False
     SGs : bool =  False
+    depth_ratio = 0.0
+    DTF = False
+    rm_bg = False
+    sg_type = 'asg'
+    detach_eyeball_geometry = False
+    detach_teeth_geometry = False
+    amplify_teeth_grad = False
+    detach_boundary = False
 
 @dataclass
 class Config(Mini3DViewerConfig):
