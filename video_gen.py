@@ -64,7 +64,7 @@ def frames2video_sorted(render_path, output_path, cam_num=16, fps=25, mode="time
                     if frame is not None:
                         video.write(frame)
                         frames_written += 1
-                        print(f"Written: Camera {cam_idx}, Frame {frame_idx} -> {images[img_index]}")
+                        # print(f"Written: Camera {cam_idx}, Frame {frame_idx} -> {images[img_index]}")
                     else:
                         print(f"Warning: Could not read {frame_path}")
                 else:
