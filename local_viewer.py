@@ -96,10 +96,13 @@ class LocalViewer(Mini3DViewer):
     def init_gaussians(self):
         # load gaussians
         motion_path = Path(self.cfg.point_path).parent / "flame_param.npz"
+        config_path = Path(self.cfg.point_path).parent.parent / "cfg_args"
+        # train_config = self.load_training_config(config_path)
+
         if motion_path.exists():
-            self.gaussians = FlameGaussianModel(self.cfg.sh_degree)
+            self.gaussians = FlameGaussianModel(self.cfg.sh_degree, sg_degree=24)
         else:
-            self.gaussians = GaussianModel(self.cfg.sh_degree)
+            self.gaussians = GaussianModel(self.cfg.sh_degree, sg_degree=24)
 
         # selected_fid = self.gaussians.flame_model.mask.get_fid_by_region(['left_half'])
         # selected_fid = self.gaussians.flame_model.mask.get_fid_by_region(['right_half'])
