@@ -715,11 +715,7 @@ class LocalViewer(Mini3DViewer):
                     # rgb_splatting = render(cam, self.gaussians, self.cfg.pipeline, torch.tensor(self.cfg.background_color).cuda(), scaling_modifier=dpg.get_value("_slider_scaling_modifier"))["render"].permute(1, 2, 0).contiguous()
                     rgb_splatting = render(cam, self.gaussians, self.cfg.pipeline, torch.tensor(self.cfg.background_color).cuda(),
                                                         scaling_modifier=dpg.get_value("_slider_scaling_modifier"),
-                                                        return_normal_shortest = False,
-                                                        return_normal_neigh = False,
-                                                        return_normal_mesh = False,
-                                                        backface_culling_smooth = False,
-                                                        backface_culling_hard = False)["render"].permute(1, 2, 0).contiguous()
+                                                        )["render"].permute(1, 2, 0).contiguous()
                     # opacity
                     # override_color = torch.ones_like(self.gaussians._xyz).cuda()
                     # background_color = torch.tensor(self.cfg.background_color).cuda() * 0
@@ -730,23 +726,14 @@ class LocalViewer(Mini3DViewer):
                     # rgb_opacity = render_alpha(cam, self.gaussians, self.cfg.pipeline, torch.tensor(self.cfg.background_color).cuda(), scaling_modifier=dpg.get_value("_slider_scaling_modifier"))["render"].permute(1, 2, 0).contiguous()
                     rgb_opacity = render(cam, self.gaussians, self.cfg.pipeline, torch.tensor(self.cfg.background_color).cuda(),
                                                         scaling_modifier=dpg.get_value("_slider_scaling_modifier"),
-                                                        return_normal_shortest = False,
-                                                        return_normal_neigh = False,
-                                                        return_normal_mesh = False,
-                                                        backface_culling_smooth = False,
-                                                        backface_culling_hard = False,
-                                                        return_alpha_one = True)["render"].permute(1, 2, 0).contiguous()
+                                                        )["render"].permute(1, 2, 0).contiguous()
 
                 if dpg.get_value("_checkbox_show_depth"):
                     # depth
                     # rgb_depth = render(cam, self.gaussians, self.cfg.pipeline, torch.tensor(self.cfg.background_color).cuda(), scaling_modifier=dpg.get_value("_slider_scaling_modifier"), return_depth = True)["render_depth"]
                     rgb_depth = render(cam, self.gaussians, self.cfg.pipeline, torch.tensor(self.cfg.background_color).cuda(),
                                     scaling_modifier=dpg.get_value("_slider_scaling_modifier"),
-                                    return_normal_shortest = False,
-                                    return_normal_neigh = False,
-                                    return_normal_mesh = False,
-                                    backface_culling_smooth = False,
-                                    backface_culling_hard = False)["render_depth"]
+                                   )["render_depth"]
                     # breakpoint()
                     rgb_depth = apply_depth_colormap(rgb_depth[0][...,None]).permute(2,0,1).permute(1, 2, 0).contiguous()
 
@@ -755,12 +742,7 @@ class LocalViewer(Mini3DViewer):
                     # rgb_normal = render(cam, self.gaussians, self.cfg.pipeline, torch.tensor(self.cfg.background_color).cuda(), scaling_modifier=dpg.get_value("_slider_scaling_modifier"), return_normal = True)["render_normal"].permute(1, 2, 0).contiguous()
                     rgb_normal = render(cam, self.gaussians, self.cfg.pipeline, torch.tensor(self.cfg.background_color).cuda(),
                                     scaling_modifier=dpg.get_value("_slider_scaling_modifier"),
-                                    return_normal_shortest = True,
-                                    return_normal_neigh = False,
-                                    return_normal_mesh = False,
-                                    backface_culling_smooth = False,
-                                    backface_culling_hard = False,
-                                    for_viewer = True)["render_normal_normed"].permute(1, 2, 0).contiguous()
+                                    )["render_normal_normed"].permute(1, 2, 0).contiguous()
                     # rgb_normal = 0.5 + (0.5 * rgb_normal)
                     
                 if dpg.get_value("_checkbox_show_normal_neigh"):
@@ -768,12 +750,7 @@ class LocalViewer(Mini3DViewer):
                     # rgb_neigh_normal = render(cam, self.gaussians, self.cfg.pipeline, torch.tensor(self.cfg.background_color).cuda(), scaling_modifier=dpg.get_value("_slider_scaling_modifier"), return_neigh_normal_viewer = True)["render_neigh_normal"].permute(1, 2, 0).contiguous()
                     rgb_neigh_normal = render(cam, self.gaussians, self.cfg.pipeline, torch.tensor(self.cfg.background_color).cuda(),
                                     scaling_modifier=dpg.get_value("_slider_scaling_modifier"),
-                                    return_normal_shortest = False,
-                                    return_normal_neigh = True,
-                                    return_normal_mesh = False,
-                                    backface_culling_smooth = False,
-                                    backface_culling_hard = False,
-                                    for_viewer = True)["render_neigh_normal"].permute(1, 2, 0).contiguous()
+                                    )["render_neigh_normal"].permute(1, 2, 0).contiguous()
                     # rgb_neigh_normal = 0.5 + (0.5 * rgb_neigh_normal)
 
                 if dpg.get_value("_slider_face_index"):
@@ -781,24 +758,14 @@ class LocalViewer(Mini3DViewer):
                     # rgb_face_index = render(cam, self.gaussians, self.cfg.pipeline, torch.tensor(self.cfg.background_color).cuda(), scaling_modifier=dpg.get_value("_slider_scaling_modifier"), return_alpha_one = True, face_index = dpg.get_value("_slider_face_index"))["render"].permute(1, 2, 0).contiguous()
                     rgb_face_index = render(cam, self.gaussians, self.cfg.pipeline, torch.tensor(self.cfg.background_color).cuda(),
                                                             scaling_modifier=dpg.get_value("_slider_scaling_modifier"),
-                                                            return_normal_shortest = False,
-                                                            return_normal_neigh = False,
-                                                            return_normal_mesh = False,
-                                                            backface_culling_smooth = False,
-                                                            backface_culling_hard = False,
-                                                            return_alpha_one = True,
-                                                            face_index = dpg.get_value("_slider_face_index"))["render"].permute(1, 2, 0).contiguous()
+                                                            )["render"].permute(1, 2, 0).contiguous()
 
                 if dpg.get_value("_checkbox_show_bf_culling"):
                     # backface culling
                     # rgb_bf_culling = render_bf_culling(cam, self.gaussians, self.cfg.pipeline, torch.tensor(self.cfg.background_color).cuda(), scaling_modifier=dpg.get_value("_slider_scaling_modifier"), return_bf_culling = True)["render"].permute(1, 2, 0).contiguous()
                     rgb_bf_culling = render(cam, self.gaussians, self.cfg.pipeline, torch.tensor(self.cfg.background_color).cuda(),
                                     scaling_modifier=dpg.get_value("_slider_scaling_modifier"),
-                                    return_normal_shortest = False,
-                                    return_normal_neigh = False,
-                                    return_normal_mesh = False,
-                                    backface_culling_smooth = False,
-                                    backface_culling_hard = True)["render"].permute(1, 2, 0).contiguous()
+                                    )["render"].permute(1, 2, 0).contiguous()
                     
                 if self.gaussians.binding is not None and dpg.get_value("_checkbox_show_mesh"):
                     out_dict = self.mesh_renderer.render_from_camera(self.gaussians.verts, self.gaussians.faces, cam, face_colors=self.face_colors)
