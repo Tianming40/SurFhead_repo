@@ -743,7 +743,7 @@ class LocalViewer(Mini3DViewer):
                     # rgb_depth = render(cam, self.gaussians, self.cfg.pipeline, torch.tensor(self.cfg.background_color).cuda(), scaling_modifier=dpg.get_value("_slider_scaling_modifier"), return_depth = True)["render_depth"]
                     rgb_depth = render(cam, self.gaussians, self.cfg.pipeline, torch.tensor(self.cfg.background_color).cuda(),
                                     scaling_modifier=dpg.get_value("_slider_scaling_modifier"),
-                                   )["render_depth"]
+                                   )["surfel_surf_depth"]
                     # breakpoint()
                     rgb_depth = apply_depth_colormap(rgb_depth[0][...,None]).permute(2,0,1).permute(1, 2, 0).contiguous()
 
@@ -752,16 +752,16 @@ class LocalViewer(Mini3DViewer):
                     # rgb_normal = render(cam, self.gaussians, self.cfg.pipeline, torch.tensor(self.cfg.background_color).cuda(), scaling_modifier=dpg.get_value("_slider_scaling_modifier"), return_normal = True)["render_normal"].permute(1, 2, 0).contiguous()
                     rgb_normal = render(cam, self.gaussians, self.cfg.pipeline, torch.tensor(self.cfg.background_color).cuda(),
                                     scaling_modifier=dpg.get_value("_slider_scaling_modifier"),
-                                    )["render_normal_normed"].permute(1, 2, 0).contiguous()
-                    # rgb_normal = 0.5 + (0.5 * rgb_normal)
+                                    )["surfel_rend_normal"].permute(1, 2, 0).contiguous()
+                    rgb_normal = 0.5 + (0.5 * rgb_normal)
                     
                 if dpg.get_value("_checkbox_show_normal_neigh"):
                     # normal_neigh
                     # rgb_neigh_normal = render(cam, self.gaussians, self.cfg.pipeline, torch.tensor(self.cfg.background_color).cuda(), scaling_modifier=dpg.get_value("_slider_scaling_modifier"), return_neigh_normal_viewer = True)["render_neigh_normal"].permute(1, 2, 0).contiguous()
                     rgb_neigh_normal = render(cam, self.gaussians, self.cfg.pipeline, torch.tensor(self.cfg.background_color).cuda(),
                                     scaling_modifier=dpg.get_value("_slider_scaling_modifier"),
-                                    )["render_neigh_normal"].permute(1, 2, 0).contiguous()
-                    # rgb_neigh_normal = 0.5 + (0.5 * rgb_neigh_normal)
+                                    )["surfel_surf_normal"].permute(1, 2, 0).contiguous()
+                    rgb_neigh_normal = 0.5 + (0.5 * rgb_neigh_normal)
 
                 if dpg.get_value("_slider_face_index"):
                     # normal_short
