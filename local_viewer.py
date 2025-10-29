@@ -34,6 +34,7 @@ class PipelineConfig:
     compute_cov3D_python: bool = False
     convert_SHs_python: bool = False
     tight_pruning_threshold : float = 0.0
+    train_kinematic : bool = False
 
 
 @dataclass
