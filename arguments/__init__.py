@@ -85,6 +85,7 @@ class PipelineParams(ParamGroup):
         self.amplify_teeth_grad = False
         self.detach_boundary = False
         self.tight_pruning_threshold = 0.0
+        self.spec_only_eyeball = False
         super().__init__(parser, "Pipeline Parameters")
 
 class OptimizationParams(ParamGroup):
