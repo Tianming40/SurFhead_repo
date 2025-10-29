@@ -35,7 +35,7 @@ class PipelineConfig:
     convert_SHs_python: bool = False
     tight_pruning_threshold : float = 0.0
     train_kinematic : bool = False
-
+    SGs : bool =  False
 
 @dataclass
 class Config(Mini3DViewerConfig):
