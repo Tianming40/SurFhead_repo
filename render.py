@@ -341,12 +341,8 @@ def render_set(dataset, name, iteration, views, gaussians, pipeline, background,
                
         else:
             specular_color = None
-        render_bucket = render(view, gaussians, pipeline, background, 
-                               backface_culling_smooth=dataset.backface_culling_smooth,
-                               backface_culling_hard=dataset.backface_culling_hard,
-                               iter=han_window_iter,
-                               specular_color= specular_color,
-                                spec_only_eyeball = pipeline.spec_only_eyeball)
+        render_bucket = render(view, gaussians, pipeline, background,
+                               specular_color= specular_color,)
         # breakpoint()
         
             
