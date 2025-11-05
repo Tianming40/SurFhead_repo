@@ -50,7 +50,7 @@ class GaussianModel:
         
         self.blend_weight_activation = torch.sigmoid
 
-    def __init__(self, sh_degree : int, sg_degree : int):
+    def __init__(self, sh_degree : int, sg_degree : int, brdf_mode : str = "none", brdf_envmap_res: int = 64):
         self.active_sh_degree = 0
         self.max_sh_degree = sh_degree  
         self._xyz = torch.empty(0)
@@ -99,6 +99,35 @@ class GaussianModel:
         self.blended_Jacobian = None
         self.blended_R = None
         self.blended_U = None
+
+
+
+        # brdf
+        self.brdf_mode = brdf_mode
+        self.brdf_envmap_res = brdf_envmap_res
+
+
+        self._normal = torch.empty(0)
+        self._normal2 = torch.empty(0)
+        self._specular = torch.empty(0)
+        self._roughness = torch.empty(0)
+
+
+        if self.brdf_mode != "none":
+            self.brdf_mlp = create_trainable_env_rnd(self.brdf_envmap_res, scale=0.0, bias=0.8)
+        else:
+            self.brdf_mlp = None
+
+        self.diffuse_activation = torch.sigmoid
+        self.specular_activation = torch.sigmoid
+        self.roughness_activation = torch.sigmoid
+        self.roughness_bias = 0.0
+        self.default_roughness = 0.6
+
+
+
+
+
 
     def capture(self):
         return (
