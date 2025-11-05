@@ -26,7 +26,7 @@ from utils.general_utils import strip_symmetric, build_scaling_rotation
 import torch.nn.functional as F
 from torch.autograd import Function
 from roma import rotmat_to_unitquat, quat_xyzw_to_wxyz, unitquat_to_rotmat, special_procrustes
-
+from scene.NVDIFFREC import create_trainable_env_rnd
 
     
 class GaussianModel:

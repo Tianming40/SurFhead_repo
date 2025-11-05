@@ -16,7 +16,7 @@ import torch.nn.functional as F
 from random import randint
 from utils.loss_utils import l1_loss, ssim, laplacian_loss, laplacian_loss_U, get_effective_rank
 
-from gaussian_renderer import render, network_gui
+from gaussian_renderer import render, network_gui, brdr_render
 from mesh_renderer import NVDiffRenderer
 import sys
 from scene import Scene, GaussianModel, FlameGaussianModel, SpecularModel
