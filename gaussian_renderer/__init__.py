@@ -443,6 +443,8 @@ def brdf_render(viewpoint_camera, pc : Union[GaussianModel, FlameGaussianModel],
             view_pos = viewpoint_camera.camera_center.repeat(means3D.shape[0], 1)
 
             diffuse = pc.get_diffuse
+            dir_pp = (means3D - viewpoint_camera.camera_center.repeat(means3D.shape[0], 1).cuda())
+            dir_pp_normalized = dir_pp / dir_pp.norm(dim=1, keepdim=True)
             normal, delta_normal = pc.get_normal(dir_pp_normalized=dir_pp_normalized, return_delta=True)
             delta_normal_norm = delta_normal.norm(dim=1, keepdim=True)
             specular = pc.get_specular
