@@ -79,7 +79,7 @@ class GaussianModel:
         self.timestep = None  # the current timestep
         self.num_timesteps = 1  # required by viewers
 
-        self.face_trans_mat = None
+        self.face_trans_mat = None # Jacobian
         
      
         self.train_kinematic = False
@@ -96,7 +96,6 @@ class GaussianModel:
         self.detach_eyeball_geometry = False
         self.detach_boundary = False
 
-        self.blended_Jacobian = None
         self.blended_R = None
         self.blended_U = None
 
