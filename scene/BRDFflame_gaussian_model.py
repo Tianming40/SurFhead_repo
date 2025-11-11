@@ -18,12 +18,15 @@ from plyfile import PlyData, PlyElement
 # from pytorch3d.transforms import quaternion_multiply
 from roma import quat_product, quat_xyzw_to_wxyz, quat_wxyz_to_xyzw, rotvec_to_rotmat, rotmat_to_rotvec
 from utils.sh_utils import RGB2SH
+from .gaussian_model import GaussianModel
+from .flame_gaussian_model import FlameGaussianModel
 # from utils.graphics_utils import BasicPointCloud
 from utils.graphics_utils import BasicPointCloud, get_dist_weight
 from utils.general_utils import strip_symmetric, build_scaling_rotation
 import torch.nn.functional as F
 from torch.autograd import Function
 from roma import rotmat_to_unitquat, quat_xyzw_to_wxyz, unitquat_to_rotmat, special_procrustes
+from scene.NVDIFFREC import create_trainable_env_rnd
 
 # from roma import quat_product, quat_xyzw_to_wxyz, quat_wxyz_to_xyzw, rotvec_to_rotmat, rotmat_to_rotvec
 class BRDFFlameGaussianModel(FlameGaussianModel):
