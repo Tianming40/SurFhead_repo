@@ -21,6 +21,7 @@ from scene.dataset_readers import sceneLoadTypeCallbacks
 from scene.cameras import Camera
 from scene.gaussian_model import GaussianModel
 from scene.flame_gaussian_model import FlameGaussianModel
+from scene.BRDFflame_gaussian_model import BRDFFlameGaussianModel
 from arguments import ModelParams
 from utils.camera_utils import cameraList_from_camInfos, camera_to_JSON
 from utils.general_utils import PILtoTorch
@@ -102,7 +103,7 @@ class Scene:
 
     gaussians : GaussianModel
 
-    def __init__(self, args : ModelParams, gaussians : Union[GaussianModel, FlameGaussianModel], load_iteration=None, shuffle=True, resolution_scales=[1.0]):
+    def __init__(self, args : ModelParams, gaussians : Union[GaussianModel, FlameGaussianModel, BRDFFlameGaussianModel], load_iteration=None, shuffle=True, resolution_scales=[1.0]):
         """b
         :param path: Path to colmap scene main folder.
         """

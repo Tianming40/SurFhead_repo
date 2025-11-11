@@ -3,7 +3,7 @@
 # GRAPHDECO research group, https://team.inria.fr/graphdeco
 # All rights reserved.
 #
-# This software is free for non-commercial, research and evaluation use 
+# This software is free for non-commercial, research and evaluation use
 # under the terms of the LICENSE.md file.
 #
 # For inquiries contact  george.drettakis@inria.fr
@@ -26,9 +26,8 @@ from utils.general_utils import strip_symmetric, build_scaling_rotation
 import torch.nn.functional as F
 from torch.autograd import Function
 from roma import rotmat_to_unitquat, quat_xyzw_to_wxyz, unitquat_to_rotmat, special_procrustes
-from scene.NVDIFFREC import create_trainable_env_rnd
 
-    
+
 class GaussianModel:
 
     def setup_functions(self):
@@ -37,7 +36,7 @@ class GaussianModel:
             actual_covariance = L @ L.transpose(1, 2)
             symm = strip_symmetric(actual_covariance)
             return symm
-        
+
         self.scaling_activation = torch.exp
         self.scaling_inverse_activation = torch.log
 
@@ -47,12 +46,12 @@ class GaussianModel:
         self.inverse_opacity_activation = inverse_sigmoid
 
         self.rotation_activation = torch.nn.functional.normalize
-        
+
         self.blend_weight_activation = torch.sigmoid
 
-    def __init__(self, sh_degree : int, sg_degree : int, brdf_mode : str = "none", brdf_envmap_res: int = 64):
+    def __init__(self, sh_degree : int, sg_degree : int):
         self.active_sh_degree = 0
-        self.max_sh_degree = sh_degree  
+        self.max_sh_degree = sh_degree
         self._xyz = torch.empty(0)
         self._features_dc = torch.empty(0)
         self._features_rest = torch.empty(0)
@@ -80,8 +79,8 @@ class GaussianModel:
         self.num_timesteps = 1  # required by viewers
 
         self.face_trans_mat = None
-        
-     
+
+
         self.train_kinematic = False
         #! have to check kinematic and kinematic dist not both
 
@@ -100,29 +99,6 @@ class GaussianModel:
         self.blended_R = None
         self.blended_U = None
 
-
-
-        # brdf
-        self.brdf_mode = brdf_mode
-        self.brdf_envmap_res = brdf_envmap_res
-
-
-        self._normal = torch.empty(0)
-        self._normal2 = torch.empty(0)
-        self._specular = torch.empty(0)
-        self._roughness = torch.empty(0)
-
-
-        if self.brdf_mode != "none":
-            self.brdf_mlp = create_trainable_env_rnd(self.brdf_envmap_res, scale=0.0, bias=0.8)
-        else:
-            self.brdf_mlp = None
-
-        self.diffuse_activation = torch.sigmoid
-        self.specular_activation = torch.sigmoid
-        self.roughness_activation = torch.sigmoid
-        self.roughness_bias = 0.0
-        self.default_roughness = 0.6
 
 
 
@@ -147,31 +123,31 @@ class GaussianModel:
             self.optimizer.state_dict(),
             self.spatial_lr_scale,
         )
-    
+
     def restore(self, model_args, training_args):
-        (self.active_sh_degree, 
-        self._xyz, 
-        self._features_dc, 
+        (self.active_sh_degree,
+        self._xyz,
+        self._features_dc,
         self._features_rest,
-        self._scaling, 
-        self._rotation, 
+        self._scaling,
+        self._rotation,
         self._opacity,
         self.binding,
         self.binding_counter,
-        self.max_radii2D, 
-        xyz_gradient_accum, 
+        self.max_radii2D,
+        xyz_gradient_accum,
         tight_visibility_mask,
         denom,
-        opt_dict, 
+        opt_dict,
         self.spatial_lr_scale) = model_args
         self.training_setup(training_args)
         self.xyz_gradient_accum = xyz_gradient_accum
         self.tight_visibility_mask = tight_visibility_mask
         self.denom = denom
         self.optimizer.load_state_dict(opt_dict)
-       
 
-    
+
+
     @property
     def get_sg_features(self):
         return self._features_sg
@@ -186,9 +162,9 @@ class GaussianModel:
                 self.select_mesh_by_timestep(0)
 
             scaling = self.scaling_activation(self._scaling)
-          
+
             return scaling * self.face_scaling[self.binding]
-    
+
     @property
     def get_rotation(self):
         if self.binding is None:
@@ -202,12 +178,12 @@ class GaussianModel:
             # if self.detach_eyeball_geometry:
 
             rot = self.rotation_activation(self._rotation)
-                
+
             face_orien_quat = self.rotation_activation(self.face_orien_quat[self.binding])
             return quat_xyzw_to_wxyz(quat_product(quat_wxyz_to_xyzw(face_orien_quat), quat_wxyz_to_xyzw(rot)))
 
-        
-    
+
+
     @property
     def get_normal(self):
         if self.binding is None:
@@ -223,13 +199,13 @@ class GaussianModel:
             full_rot = quat_xyzw_to_wxyz(quat_product(quat_wxyz_to_xyzw(face_orien_quat), quat_wxyz_to_xyzw(rot))) #? same as get rotation
             normal = build_rotation(full_rot)[..., 2:]
             if self.DTF: #! Rr
-             
-               
+
+
                 # rot = self.rotation_activation(self._rotation)[self.binding]
                 # face_orien_quat = self.rotation_activation(self.face_orien_quat[self.binding])
                 # full_rot = quat_xyzw_to_wxyz(quat_product(quat_wxyz_to_xyzw(face_orien_quat), quat_wxyz_to_xyzw(rot))) #? same as get rotation
                 # normal = build_rotation(full_rot)[..., 2:]
-   
+
                 if self.train_kinematic:
                 # if False:
                     blended_Jacobian = self.blended_Jacobian
@@ -237,19 +213,19 @@ class GaussianModel:
                 else:
                     transmat_inv = torch.linalg.inv(self.face_trans_mat[self.binding]).permute(0,2,1)
                 normal_deformed = torch.bmm(transmat_inv, normal).squeeze(-1)
-         
-                    
+
+
                 return normal_deformed
-               
+
             else:
                 return normal.squeeze(-1)
-    
-    
-        
+
+
+
     def get_blended_jacobian(self):
-        
+
         def polar_decomp(m):   # express polar decomposition in terms of singular-value decomposition
-            #! this convention 
+            #! this convention
             #! https://blog.naver.com/PostView.naver?blogId=richscskia&logNo=222179474476
             #! https://discuss.pytorch.org/t/polar-decomposition-of-matrices-in-pytorch/188458/2
             # breakpoint()
@@ -258,15 +234,15 @@ class GaussianModel:
             P = torch.bmm(torch.bmm(Vh.permute(0,2,1).conj(), torch.diag_embed(S).to(dtype = m.dtype)), Vh) #! PSD
             # P = torch.bmm(torch.bmm(Vh.permute(0,2,1).conj(), torch.diag_embed(S)), Vh)
             return U_new, P
-        
+
         binding_faces = self.face_adjacency.cuda()[self.binding]
 
         if self.train_kinematic:
 
             blend_weights = F.normalize(self.blend_weight_activation(self.blend_weight), dim=-1, p=1)
-           
 
-        
+
+
         if self.detach_eyeball_geometry:
             eyeball_mask = torch.isin(self.binding, self.flame_model.mask.f.eyeballs)
 
@@ -274,12 +250,12 @@ class GaussianModel:
             eyeball_indices = torch.nonzero(eyeball_mask).squeeze(1)
             # breakpoint()
             blend_weights[eyeball_indices] = torch.tensor([1.0, 0.0, 0.0, 0.0], device=blend_weights.device)
-            
+
             # blend_weights[]
         #! "right" Cauchy-Green
         Q = self.face_trans_mat
         # R, U = polar_decomp(Q)
-    
+
         R_ = self.face_R_mat[binding_faces].detach(); U_ = self.face_U_mat[binding_faces].detach()
         R_rotvec = rotmat_to_rotvec(R_).detach()
         # R_rotvec = self.R_rotvec[binding_faces]
@@ -287,15 +263,15 @@ class GaussianModel:
         # U_mat = U[b]
         blended_R_rotvec = torch.sum(blend_weights.unsqueeze(-1) * R_rotvec, dim=1)
         blended_R = rotvec_to_rotmat(blended_R_rotvec)
-        
+
         blended_U = torch.sum(blend_weights.unsqueeze(-1).unsqueeze(-1)*U_, dim=1)
-        
-        
+
+
         # R_rotvec = self.R_rotvec[binding_faces]
         # U_mat = self.U_mat[binding_faces]
         # blended_R_rotvec = torch.sum(blend_weights.unsqueeze(-1) * R_rotvec, dim=1)
-        
-        
+
+
         # blended_U = torch.sum(blend_weights.unsqueeze(-1).unsqueeze(-1)*U_mat, dim=1)
         # blended_R = rotvec_to_rotmat(blended_R_rotvec)
         blended_Jacobians = torch.bmm(blended_R, blended_U)
@@ -303,9 +279,9 @@ class GaussianModel:
             # breakpoint()
             blended_Jacobians[eyeball_indices] = Q[self.binding][eyeball_indices]
         return blended_Jacobians, blended_R, blended_U
-    
-    
-        
+
+
+
 
     @property
     def get_blended_xyz(self):
@@ -315,9 +291,9 @@ class GaussianModel:
             # Toyota Motor Europe NV/SA and its affiliated companies retain all intellectual property and proprietary rights in and to the following code lines and related documentation. Any commercial use, reproduction, disclosure or distribution of these code lines and related documentation without an express license agreement from Toyota Motor Europe NV/SA is strictly prohibited.
             if self.face_center is None:
                 self.select_mesh_by_timestep(0)
-     
 
-            
+
+
             if self.DTF:
             # if True:
                 # breakpoint()
@@ -333,7 +309,7 @@ class GaussianModel:
                 xyz_cano = global_scaling[...,None]*torch.bmm(self.face_orien_mat[self.binding], self._xyz[..., None])#.squeeze(-1)
                 # xyz_posed = torch.bmm(self.blended_Jacobian, xyz_cano).squeeze(-1) + self.face_center[self.binding]
                 xyz_posed = torch.bmm(self.blended_Jacobian, xyz_cano).squeeze(-1) + self.face_center[self.binding]
-            
+
                 return xyz_posed
             else:
                 raise NotImplementedError
@@ -345,11 +321,11 @@ class GaussianModel:
             # Toyota Motor Europe NV/SA and its affiliated companies retain all intellectual property and proprietary rights in and to the following code lines and related documentation. Any commercial use, reproduction, disclosure or distribution of these code lines and related documentation without an express license agreement from Toyota Motor Europe NV/SA is strictly prohibited.
             if self.face_center is None:
                 self.select_mesh_by_timestep(0)
-     
 
-            
+
+
             if self.DTF:
-            
+
                 global_scaling = self.face_scaling[self.binding]
                 # breakpoint()
                 xyz_cano = global_scaling*\
@@ -358,11 +334,11 @@ class GaussianModel:
                 # breakpoint()
                 # xyz_posed = torch.bmm(self.blended_Jacobian, xyz_cano).squeeze(-1) + self.face_center[self.binding]
                 # xyz_posed = torch.bmm(blended_Jacobian, xyz_cano).squeeze(-1) + self.face_center[self.binding]
-            
+
                 return xyz_cano#.squeeze(-1)
             else:
                 raise NotImplementedError
-            
+
     @property
     def get_xyz(self):
         if self.binding is None:
@@ -371,43 +347,43 @@ class GaussianModel:
             # Toyota Motor Europe NV/SA and its affiliated companies retain all intellectual property and proprietary rights in and to the following code lines and related documentation. Any commercial use, reproduction, disclosure or distribution of these code lines and related documentation without an express license agreement from Toyota Motor Europe NV/SA is strictly prohibited.
             if self.face_center is None:
                 self.select_mesh_by_timestep(0)
-    
-            
-            
+
+
+
             if self.DTF:#! JRr + T_posed
-           
+
                 global_scaling = self.face_scaling[self.binding]
                 xyz_cano = global_scaling[...,None]*torch.bmm(self.face_orien_mat[self.binding], self._xyz[..., None])#.squeeze(-1)
                 xyz_posed = torch.bmm(self.face_trans_mat[self.binding], xyz_cano).squeeze(-1) + self.face_center[self.binding]
-                return xyz_posed 
+                return xyz_posed
 
             else:
-              
-                    
+
+
                 xyz = torch.bmm(self.face_orien_mat[self.binding], self._xyz[..., None]).squeeze(-1)
                 global_scaling = self.face_scaling[self.binding]
                 return xyz * global_scaling + self.face_center[self.binding]
-            
+
     @property
     def get_features(self):
         features_dc = self._features_dc
         features_rest = self._features_rest
         return torch.cat((features_dc, features_rest), dim=1)
-    
+
     @property
     def get_opacity(self):
         return self.opacity_activation(self._opacity)
-    
+
     @property
     def get_blend_weight(self):
         if self.train_kinematic:
             return self.blend_weight_activation(self.blend_weight)
         else:
             return self.blend_weight
-    
+
     def get_covariance(self, scaling_modifier = 1):
         return self.covariance_activation(self.get_scaling, scaling_modifier, self._rotation)
-    
+
     def select_mesh_by_timestep(self, timestep):
         raise NotImplementedError
 
@@ -440,13 +416,13 @@ class GaussianModel:
             dist2 = torch.clamp_min(distCUDA2(self.get_xyz), 0.0000001)
             scales = torch.log(torch.sqrt(dist2))[...,None].repeat(1, 2)
         else:
-            
+
             scales = torch.log(torch.ones((self.get_xyz.shape[0], 2), device="cuda"))
         rots = torch.zeros((fused_point_cloud.shape[0], 4), device="cuda")
         rots[:, 0] = 1
 
         opacities = inverse_sigmoid(0.1 * torch.ones((fused_point_cloud.shape[0], 1), dtype=torch.float, device="cuda"))
-        
+
         self._xyz = nn.Parameter(fused_point_cloud.requires_grad_(True))
         self._features_dc = nn.Parameter(features[:,:,0:1].transpose(1, 2).contiguous().requires_grad_(True))
         self._features_rest = nn.Parameter(features[:,:,1:].transpose(1, 2).contiguous().requires_grad_(True))
@@ -457,7 +433,7 @@ class GaussianModel:
 
         self._features_sg = nn.Parameter(sg_features.requires_grad_(True))
 
-        
+
         if self.train_kinematic:
 
             # identity = inverse_sigmoid(torch.ones((self._xyz.shape[0],1), device="cuda")) #!1
@@ -473,12 +449,12 @@ class GaussianModel:
             if self.detach_boundary:
                 identity[boundary_indices] = inverse_sigmoid((1-(1e-10)) * torch.ones((self._xyz[boundary_indices].shape[0],1), device="cuda"))
                 neighbour[boundary_indices] = inverse_sigmoid((1e-10) * torch.ones((self._xyz[boundary_indices].shape[0],3), device="cuda"))
-                
+
             bw = torch.cat((identity, neighbour), 1)  #.cuda()
             # self.blend_weight = nn.Parameter(.requires_grad_(True))
             # breakpoint()
             self.blend_weight = nn.Parameter(bw.requires_grad_(True))
-  
+
 
     def training_setup(self, training_args):
         self.percent_dense = training_args.percent_dense
@@ -499,7 +475,7 @@ class GaussianModel:
             {'params': [self._rotation], 'lr': training_args.rotation_lr, "name": "rotation"},
             {'params': [self._features_sg], 'lr': training_args.feature_lr, "name": "f_sg"},
         ]
-   
+
         if self.train_kinematic:
             l.append({'params': [self.blend_weight], 'lr': training_args.blend_weight_lr, "name": "blend_weight"})
         # breakpoint()
@@ -508,7 +484,7 @@ class GaussianModel:
                                                     lr_final=training_args.position_lr_final*self.spatial_lr_scale,
                                                     lr_delay_mult=training_args.position_lr_delay_mult,
                                                     max_steps=training_args.position_lr_max_steps)
-        
+
         self.blend_weight_scheduler_args = get_expon_lr_func(lr_init=training_args.blend_weight_lr*self.spatial_lr_scale,
                                                     lr_final=(training_args.blend_weight_lr/100.0)*self.spatial_lr_scale,
                                                     lr_delay_mult=training_args.position_lr_delay_mult,
@@ -516,18 +492,18 @@ class GaussianModel:
 
     def update_learning_rate(self, iteration):
         ''' Learning rate scheduling per step '''
-       
+
         for param_group in self.optimizer.param_groups:
             if param_group["name"] == "xyz":
                 lr = self.xyz_scheduler_args(iteration)
                 param_group['lr'] = lr
                 return lr
             # if para
-            
+
 
     def construct_list_of_attributes(self):
         l = ['x', 'y', 'z', 'nx', 'ny', 'nz']
-        
+
         if self.train_kinematic or self.train_kinematic_dist:
             # for i in range(self.blend_weight.shape[1]):
             #     l.append()
@@ -555,7 +531,7 @@ class GaussianModel:
         mkdir_p(os.path.dirname(path))
         # breakpoint()
         xyz = self._xyz.detach().cpu().numpy()
-        
+
         normals = np.zeros_like(xyz)
         if self.train_kinematic or self.train_kinematic_dist:
             # blend_weight = self.blend_weight[self.binding].detach().cpu().numpy()
@@ -571,8 +547,8 @@ class GaussianModel:
         dtype_full = [(attribute, 'f4') for attribute in self.construct_list_of_attributes()]
         # import pdb;pdb.set_trace()
         elements = np.empty(xyz.shape[0], dtype=dtype_full)
-        
- 
+
+
         if self.train_kinematic:
             attributes = np.concatenate((xyz, normals, blend_weight, f_dc, f_rest, opacities, scale, rotation, f_sg), axis=1)
         else:
@@ -637,7 +613,7 @@ class GaussianModel:
         self._scaling = nn.Parameter(torch.tensor(scales, dtype=torch.float, device="cuda").requires_grad_(True))
         self._rotation = nn.Parameter(torch.tensor(rots, dtype=torch.float, device="cuda").requires_grad_(True))
         self._features_sg = nn.Parameter(torch.tensor(f_sgs, dtype=torch.float, device="cuda").requires_grad_(True))
-     
+
         self.active_sh_degree = self.max_sh_degree
 
         # optional fields
@@ -648,7 +624,7 @@ class GaussianModel:
             for idx, attr_name in enumerate(binding_names):
                 binding[:, idx] = np.asarray(plydata.elements[0][attr_name])
             self.binding = torch.tensor(binding, dtype=torch.int32, device="cuda").squeeze(-1)
- 
+
         if self.train_kinematic:
             # breakpoint()
             #! M x 4
@@ -667,7 +643,7 @@ class GaussianModel:
             # restored_blend_weight = torch.full((self.face_center.shape[0], 3), -1, dtype=blend_weight.dtype)
             # restored_blend_weight[self.binding] = blend_weight
             # self.blend_weight = nn.Parameter(restored_blend_weight.to("cuda").requires_grad_(True))
-            
+
     def replace_tensor_to_optimizer(self, tensor, name):
         optimizable_tensors = {}
         for group in self.optimizer.param_groups:
@@ -709,15 +685,15 @@ class GaussianModel:
 
     def prune_points(self, mask):
         # breakpoint()
-        if self.binding is not None: 
+        if self.binding is not None:
             # make sure each face is bound to at least one point after pruning
             binding_to_prune = self.binding[mask]
             counter_prune = torch.zeros_like(self.binding_counter)
             counter_prune.scatter_add_(0, binding_to_prune, torch.ones_like(binding_to_prune, dtype=torch.int32, device="cuda"))
             mask_redundant = (self.binding_counter - counter_prune) > 0
             mask[mask.clone()] = mask_redundant[binding_to_prune]
-        
-        valid_points_mask = ~mask 
+
+        valid_points_mask = ~mask
         optimizable_tensors = self._prune_optimizer(valid_points_mask)
 
         self._xyz = optimizable_tensors["xyz"]
@@ -728,7 +704,7 @@ class GaussianModel:
         self._rotation = optimizable_tensors["rotation"]
         self._features_sg = optimizable_tensors["f_sg"]
         # breakpoint()
- 
+
         self.xyz_gradient_accum = self.xyz_gradient_accum[valid_points_mask]
         self.xyz_gradient_accum_abs = self.xyz_gradient_accum_abs[valid_points_mask]
         self.xyz_gradient_accum_abs_max = self.xyz_gradient_accum_abs_max[valid_points_mask]
@@ -741,22 +717,22 @@ class GaussianModel:
             # Toyota Motor Europe NV/SA and its affiliated companies retain all intellectual property and proprietary rights in and to the following code lines and related documentation. Any commercial use, reproduction, disclosure or distribution of these code lines and related documentation without an express license agreement from Toyota Motor Europe NV/SA is strictly prohibited.
             self.binding_counter.scatter_add_(0, self.binding[mask], -torch.ones_like(self.binding[mask], dtype=torch.int32, device="cuda"))
             self.binding = self.binding[valid_points_mask]
-            
 
-            
+
+
         if self.train_kinematic:
             self.blend_weight = optimizable_tensors['blend_weight']
-            
-            
+
+
             # print('!!Calculating Lap. with passing in the tight session!!\n')
-            
+
     def cat_tensors_to_optimizer(self, tensors_dict):
         optimizable_tensors = {}
         for group in self.optimizer.param_groups:
             # rule out parameters that are not properties of gaussians
             if group["name"] not in tensors_dict:
                 continue
-            
+
             assert len(group["params"]) == 1
             extension_tensor = tensors_dict[group["name"]]
             stored_state = self.optimizer.state.get(group['params'][0], None)
@@ -796,7 +772,7 @@ class GaussianModel:
         self._scaling = optimizable_tensors["scaling"]
         self._rotation = optimizable_tensors["rotation"]
         self._features_sg = optimizable_tensors["f_sg"]
-        
+
         #! after densification -> reinitialize
         self.tight_visibility_mask = torch.zeros((self.get_xyz.shape[0]), device="cuda")
         self.xyz_gradient_accum = torch.zeros((self.get_xyz.shape[0], 1), device="cuda")
@@ -804,7 +780,7 @@ class GaussianModel:
         self.xyz_gradient_accum_abs_max = torch.zeros((self.get_xyz.shape[0], 1), device="cuda")
         self.denom = torch.zeros((self.get_xyz.shape[0], 1), device="cuda")
         self.max_radii2D = torch.zeros((self.get_xyz.shape[0]), device="cuda")
-        
+
 
         if self.train_kinematic or self.train_kinematic_dist:
             self.blend_weight = optimizable_tensors['blend_weight']
@@ -831,7 +807,7 @@ class GaussianModel:
         selected_pts_mask = torch.where(padded_grad >= grad_threshold, True, False)
         selected_pts_mask = torch.logical_and(selected_pts_mask,
                                               torch.max(self.get_scaling, dim=1).values > self.percent_dense*scene_extent)
-        
+
         stds = self.get_scaling[selected_pts_mask].repeat(N,1)
         stds = torch.cat([stds, 0 * torch.ones_like(stds[:,:1])], dim=-1)
         # means =torch.zeros((stds.size(0), 3),device="cuda")
@@ -841,7 +817,7 @@ class GaussianModel:
         new_xyz = torch.bmm(rots, samples.unsqueeze(-1)).squeeze(-1) + self._xyz[selected_pts_mask].repeat(N, 1)
         if self.binding is not None:
             selected_scaling = self.get_scaling[selected_pts_mask]
-         
+
             face_scaling = self.face_scaling[self.binding[selected_pts_mask]]
             new_scaling = self.scaling_inverse_activation((selected_scaling / face_scaling).repeat(N,1) / (0.8*N))
         else:
@@ -858,7 +834,7 @@ class GaussianModel:
             self.binding = torch.cat((self.binding, new_binding))
             self.binding_counter.scatter_add_(0, new_binding, torch.ones_like(new_binding, dtype=torch.int32, device="cuda"))
 
-        
+
         if self.train_kinematic or self.train_kinematic_dist:
             # breakpoint()
             if False:
@@ -891,7 +867,7 @@ class GaussianModel:
         selected_pts_mask = torch.where(torch.norm(grads, dim=-1) >= grad_threshold, True, False)
         selected_pts_mask = torch.logical_and(selected_pts_mask,
                                               torch.max(self.get_scaling, dim=1).values <= self.percent_dense*scene_extent)
-        
+
         new_xyz = self._xyz[selected_pts_mask]
         new_features_dc = self._features_dc[selected_pts_mask]
         new_features_rest = self._features_rest[selected_pts_mask]
@@ -905,7 +881,7 @@ class GaussianModel:
             new_binding = self.binding[selected_pts_mask]
             self.binding = torch.cat((self.binding, new_binding))
             self.binding_counter.scatter_add_(0, new_binding, torch.ones_like(new_binding, dtype=torch.int32, device="cuda"))
-     
+
         if self.train_kinematic or self.train_kinematic_dist:
             if False:
                 before_blend_weight = self.blend_weight[selected_pts_mask]
@@ -915,18 +891,18 @@ class GaussianModel:
                 new_blend_weight = self.blend_weight[selected_pts_mask]
         else:
             new_blend_weight = None
-            
+
             # self.densification_postfix(new_xyz, new_features_dc, new_features_rest, new_opacities, new_scaling, new_rotation, new_normal, new_normal2)
         self.densification_postfix(new_xyz, new_features_dc, new_features_rest, new_opacities, new_scaling, new_rotation, new_feature_sg, new_blend_weight)
 
     def densify_and_prune(self, max_grad, min_opacity, extent, max_screen_size, \
               detach_eyeball_geometry=False):
 
-        
+
         grads = self.xyz_gradient_accum / self.denom
         grads[grads.isnan()] = 0.0
-        
-        
+
+
         if detach_eyeball_geometry:
             eyeball_mask = torch.isin(self.binding, self.flame_model.mask.f.eyeballs)
 
@@ -940,13 +916,13 @@ class GaussianModel:
         #     teeth_indices = torch.nonzero(teeth_mask).squeeze(1)
         #     grads[teeth_indices] = 0.0
             # grads_abs[teeth_indices] = 0.0
-            
+
         # ratio = (torch.norm(grads, dim=-1) >= max_grad).float().mean()
         # Q = torch.quantile(grads_abs.reshape(-1), 1 - ratio)
 
 
         # self.densify_and_clone(grads, max_grad, extent)
-        # #! 
+        # #!
         # self.densify_and_split(grads, max_grad, extent)#! postfix(to zero) + pruning(size)
 
         before = self._xyz.shape[0]
@@ -962,13 +938,13 @@ class GaussianModel:
             big_points_vs = self.max_radii2D > max_screen_size
             big_points_ws = self.get_scaling.max(dim=1).values > 0.1 * extent
             prune_mask = torch.logical_or(torch.logical_or(prune_mask, big_points_vs), big_points_ws)
-        
+
             # prune_mask torch.Size([11458])
             # breakpoint()
-       
-            
-         
-       
+
+
+
+
         self.prune_points(prune_mask)
 
         # self.tight_visibility_mask = torch.zeros_like(self.tight_visibility_mask)
@@ -978,8 +954,8 @@ class GaussianModel:
         print(f'Before: {before} / After: {prune}')
         torch.cuda.empty_cache()
         return clone - before, split - clone, split - prune
-    
-        
+
+
 
 
 
@@ -992,21 +968,21 @@ class GaussianModel:
             teeth_mask = torch.isin(self.binding, self.flame_model.mask.f.teeth)
             # teeth_lower_mask = torch.isin(self.binding, self.flame_model.mask.f.teeth_lower)
             teeth_indices = torch.nonzero(teeth_mask).squeeze(1)
-            
+
             viewspace_point_tensor.grad[teeth_indices] *= 20
             # breakpoint()
         # if self.densification_type == 'arithmetic_mean':
         # self.xyz_gradient_accum[update_filter] += torch.norm(viewspace_point_tensor.grad[update_filter,:2], dim=-1, keepdim=True)
         # self.xyz_gradient_accum_abs[update_filter] += torch.norm(viewspace_point_tensor.grad[update_filter,2:], dim=-1, keepdim=True)
         # self.xyz_gradient_accum_abs_max[update_filter] = torch.max(self.xyz_gradient_accum_abs_max[update_filter], torch.norm(viewspace_point_tensor.grad[update_filter,2:], dim=-1, keepdim=True))
-     
+
         # self.denom[update_filter] += 2
-        
+
         self.xyz_gradient_accum[update_filter] += torch.norm(viewspace_point_tensor.grad[update_filter,:2], dim=-1, keepdim=True)
         self.denom[update_filter] += 1
-        
+
         # self.denom[update_filter] += 1
-        
+
         # if visibility_filter_tight is not None:
         #     # breakpoint()
         #     self.tight_visibility_mask = torch.logical_or(self.tight_visibility_mask, visibility_filter_tight)
