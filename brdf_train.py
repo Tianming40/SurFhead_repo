@@ -16,10 +16,10 @@ import torch.nn.functional as F
 from random import randint
 from utils.loss_utils import l1_loss, ssim, laplacian_loss, laplacian_loss_U, get_effective_rank
 
-from gaussian_renderer import render, network_gui, brdr_render
+from gaussian_renderer import render, network_gui, brdf_render
 from mesh_renderer import NVDiffRenderer
 import sys
-from scene import Scene, GaussianModel, FlameGaussianModel, SpecularModel
+from scene import Scene, GaussianModel, FlameGaussianModel, SpecularModel, BRDFFlameGaussianModel
 from utils.general_utils import safe_state, colormap
 import uuid
 from tqdm import tqdm
@@ -59,11 +59,22 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
             n_shape = 300
             n_expr = 100
 
-        gaussians = FlameGaussianModel(dataset.sh_degree, dataset.sg_degree, dataset.disable_flame_static_offset,
-                                       dataset.not_finetune_flame_params, n_shape=n_shape, n_expr=n_expr,
-                                       train_kinematic=pipe.train_kinematic, DTF=pipe.DTF,
-                                       densification_type=opt.densification_type,
-                                       detach_eyeball_geometry=pipe.detach_eyeball_geometry)
+        gaussians = BRDFFlameGaussianModel(
+            dataset.sh_degree,
+            dataset.sg_degree,
+            brdf_dim=2,
+            brdf_mode="envmap",
+            brdf_envmap_res=64,
+            disable_flame_static_offset=dataset.disable_flame_static_offset,
+            not_finetune_flame_params=dataset.not_finetune_flame_params,
+            n_shape=n_shape,
+            n_expr=n_expr,
+            train_kinematic=pipe.train_kinematic,
+            DTF=pipe.DTF,
+            densification_type=opt.densification_type,
+            detach_eyeball_geometry=pipe.detach_eyeball_geometry
+        )
+
         try:
             mesh_renderer = NVDiffRenderer()
         except:
@@ -72,8 +83,9 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
     else:
         gaussians = GaussianModel(dataset.sh_degree)
     scene = Scene(dataset, gaussians)
-    gaussians.training_setup(
-        opt)  # ! from here all trainble parameters are set(e.g., flame_codes, xyz, scaling, dynamic_offset, opacity)
+    gaussians.training_setup(opt)
+    gaussians.set_training_stage(1)
+
     if checkpoint:
         (model_params, first_iter) = torch.load(checkpoint)
         gaussians.restore(model_params, opt)
@@ -96,6 +108,75 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
     first_iter += 1
 
     for iteration in range(first_iter, opt.iterations + 1):
+        total_iterations = opt.iterations
+        stage1_end = int(0.3 * total_iterations)
+        stage2_end = int(0.6 * total_iterations)
+
+        if iteration == stage1_end:
+            print(f"[ITER {iteration}] switch to Stage 2: BRDF initialization")
+            gaussians.set_training_stage(2)
+
+
+            if hasattr(opt, 'lambda_xyz'):
+                opt.lambda_xyz = 0.0
+            if hasattr(opt, 'lambda_scale'):
+                opt.lambda_scale = 0.0
+
+        elif iteration == stage2_end:
+            print(f"[ITER {iteration}] switch to Stage 3: full BRDF training ")
+            gaussians.set_training_stage(3)
+
+
+            if hasattr(opt, 'lambda_xyz'):
+                opt.lambda_xyz = original_lambda_xyz
+            if hasattr(opt, 'lambda_scale'):
+                opt.lambda_scale = original_lambda_scale
+
+
+        current_stage = gaussians.training_stage
+        if current_stage == 1:
+
+            use_relight_data = False
+            data_mix_ratio = 1.0
+        elif current_stage == 2:
+
+            use_relight_data = True
+            data_mix_ratio = 0.8
+        else:  # stage 3
+
+            use_relight_data = True
+            data_mix_ratio = 0.3
+
+
+        if use_relight_data and hasattr(scene, 'getRelightCameras'):
+
+            if torch.rand(1) < data_mix_ratio:
+
+                try:
+                    viewpoint_cam = next(iter_camera_train)
+                except StopIteration:
+                    iter_camera_train = iter(loader_camera_train)
+                    viewpoint_cam = next(iter_camera_train)
+            else:
+
+                relight_cameras = scene.getRelightCameras()
+                if len(relight_cameras) > 0:
+                    relight_loader = DataLoader(relight_cameras, batch_size=None, shuffle=True)
+                    relight_iter = iter(relight_loader)
+                    try:
+                        viewpoint_cam = next(relight_iter)
+                    except StopIteration:
+                        relight_iter = iter(relight_loader)
+                        viewpoint_cam = next(relight_iter)
+                else:
+
+                    viewpoint_cam = next(iter_camera_train)
+        else:
+            try:
+                viewpoint_cam = next(iter_camera_train)
+            except StopIteration:
+                iter_camera_train = iter(loader_camera_train)
+                viewpoint_cam = next(iter_camera_train)
 
         # han_window_iter = iteration * 2/(opt.iterations + 1)
         han_window_iter = iteration / (opt.iterations + 1)
@@ -214,8 +295,15 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
         else:
             specular_color = None
 
-        render_pkg = render(viewpoint_cam, gaussians, pipe, background,
-                            specular_color=specular_color)
+        if current_stage == 1:
+
+            render_pkg = render(viewpoint_cam, gaussians, pipe, background,
+                                specular_color=specular_color)
+        else:
+
+            render_pkg = brdf_render(viewpoint_cam, gaussians, pipe, background,
+                                     specular_color=specular_color,
+                                     training_stage=current_stage)
 
         image, viewspace_point_tensor, visibility_filter, radii = render_pkg["render"], render_pkg["viewspace_points"], \
         render_pkg["visibility_filter"], render_pkg["radii"]
@@ -227,6 +315,12 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
         losses = {}
         losses['l1'] = l1_loss(image, gt_image) * (1.0 - opt.lambda_dssim)
         losses['ssim'] = (1.0 - ssim(image, gt_image)) * opt.lambda_dssim
+
+        if current_stage >= 2:
+            if hasattr(render_pkg, 'brdf_losses'):
+                brdf_losses = render_pkg.brdf_losses
+                for loss_name, loss_value in brdf_losses.items():
+                    losses[f'brdf_{loss_name}'] = loss_value
 
         # ! from 2dgs regularization
         if os.path.basename(dataset.source_path).startswith("FaceTalk"):
@@ -469,6 +563,8 @@ def prepare_output_and_logger(args):
 def training_report(tb_writer, iteration, losses, elapsed, testing_iterations, scene: Scene, renderFunc, renderArgs,
                     specular_mlp):
     if tb_writer:
+        current_stage = scene.gaussians.training_stage
+        tb_writer.add_scalar('training/stage', current_stage, iteration)
         tb_writer.add_scalar('train_loss_patches/l1_loss', losses['l1'].item(), iteration)
         tb_writer.add_scalar('train_loss_patches/ssim_loss', losses['ssim'].item(), iteration)
         if 'xyz' in losses:
