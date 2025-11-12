@@ -85,53 +85,6 @@ class BRDFFlameGaussianModel(FlameGaussianModel):
         return self._features_rest
 
 
-    def set_training_stage(self, stage):
-
-        self.training_stage = stage
-
-        if stage == 1:
-
-            self._freeze_parameters(['_normal', '_normal2', '_specular', '_roughness', 'brdf_mlp'])
-            self._unfreeze_parameters(['_xyz', '_scaling', '_rotation', '_opacity',
-                                       '_features_dc', '_features_rest', '_features_sg',
-                                       'flame_param'])
-
-        elif stage == 2:
-
-            self._freeze_parameters(['_xyz', '_scaling', '_rotation', '_opacity',
-                                     '_features_dc', '_features_rest', '_features_sg',
-                                     'flame_param'])
-            self._unfreeze_parameters(['_normal', '_normal2', '_specular', '_roughness'])
-
-        elif stage == 3:
-
-            self._unfreeze_parameters(['_xyz', '_scaling', '_rotation', '_opacity',
-                                       '_features_dc', '_features_rest', '_features_sg',
-                                       '_normal', '_normal2', '_specular', '_roughness',
-                                       'brdf_mlp', 'flame_param'])
-
-    def _freeze_parameters(self, param_names):
-        """冻结指定参数"""
-        for name in param_names:
-            if hasattr(self, name):
-                param = getattr(self, name)
-                if isinstance(param, nn.Parameter):
-                    param.requires_grad = False
-                elif isinstance(param, nn.Module):
-                    for p in param.parameters():
-                        p.requires_grad = False
-
-    def _unfreeze_parameters(self, param_names):
-        """解冻指定参数"""
-        for name in param_names:
-            if hasattr(self, name):
-                param = getattr(self, name)
-                if isinstance(param, nn.Parameter):
-                    param.requires_grad = True
-                elif isinstance(param, nn.Module):
-                    for p in param.parameters():
-                        p.requires_grad = True
-
 
     def create_from_pcd(self, pcd: Optional[BasicPointCloud], spatial_lr_scale: float):
         self.spatial_lr_scale = spatial_lr_scale
@@ -216,9 +169,87 @@ class BRDFFlameGaussianModel(FlameGaussianModel):
             # breakpoint()
             self.blend_weight = nn.Parameter(bw.requires_grad_(True))
 
+    def training_setup(self, training_args):  # ! 2
+        super().training_setup(training_args)
 
+        if self.not_finetune_flame_params:
+            return
 
+        # # shape
+        # self.flame_param['shape'].requires_grad = True
+        # param_shape = {'params': [self.flame_param['shape']], 'lr': 1e-5, "name": "shape"}
+        # self.optimizer.add_param_group(param_shape)
 
+        # pose
+        self.flame_param['rotation'].requires_grad = True
+        self.flame_param['neck_pose'].requires_grad = True
+        self.flame_param['jaw_pose'].requires_grad = True
+        self.flame_param['eyes_pose'].requires_grad = True
+        params = [
+            self.flame_param['rotation'],
+            self.flame_param['neck_pose'],
+            self.flame_param['jaw_pose'],
+            self.flame_param['eyes_pose'],
+        ]
+        param_pose = {'params': params, 'lr': training_args.flame_pose_lr, "name": "pose"}
+        self.optimizer.add_param_group(param_pose)
+
+        # translation
+        self.flame_param['translation'].requires_grad = True
+        param_trans = {'params': [self.flame_param['translation']], 'lr': training_args.flame_trans_lr, "name": "trans"}
+        self.optimizer.add_param_group(param_trans)
+
+        # expression
+        self.flame_param['expr'].requires_grad = True
+        param_expr = {'params': [self.flame_param['expr']], 'lr': training_args.flame_expr_lr, "name": "expr"}
+        self.optimizer.add_param_group(param_expr)
+
+    def set_training_stage(self, stage):
+
+        self.training_stage = stage
+
+        if stage == 1:
+
+            self._freeze_parameters(['_normal', '_normal2', '_specular', '_roughness', 'brdf_mlp'])
+            self._unfreeze_parameters(['_xyz', '_scaling', '_rotation', '_opacity',
+                                       '_features_dc', '_features_rest', '_features_sg',
+                                       'flame_param'])
+
+        elif stage == 2:
+
+            self._freeze_parameters(['_xyz', '_scaling', '_rotation', '_opacity',
+                                     '_features_dc', '_features_rest', '_features_sg',
+                                     'flame_param'])
+            self._unfreeze_parameters(['_normal', '_normal2', '_specular', '_roughness'])
+
+        elif stage == 3:
+
+            self._unfreeze_parameters(['_xyz', '_scaling', '_rotation', '_opacity',
+                                       '_features_dc', '_features_rest', '_features_sg',
+                                       '_normal', '_normal2', '_specular', '_roughness',
+                                       'brdf_mlp', 'flame_param'])
+
+    def _freeze_parameters(self, param_names):
+        """冻结指定参数"""
+        for name in param_names:
+            if hasattr(self, name):
+                param = getattr(self, name)
+                if isinstance(param, nn.Parameter):
+                    param.requires_grad = False
+                elif isinstance(param, nn.Module):
+                    for p in param.parameters():
+                        p.requires_grad = False
+
+    def _unfreeze_parameters(self, param_names):
+        """解冻指定参数"""
+        for name in param_names:
+            if hasattr(self, name):
+                param = getattr(self, name)
+                if isinstance(param, nn.Parameter):
+                    param.requires_grad = True
+                elif isinstance(param, nn.Module):
+                    for p in param.parameters():
+                        p.requires_grad = True
 
     # 重写PLY加载方法以支持BRDF参数
     def load_ply(self, path, **kwargs):

@@ -48,9 +48,9 @@ class ModelParams(ParamGroup):
     def __init__(self, parser, sentinel=False):
         self.sh_degree = 3
         self.sg_degree = 24
-        self._source_path = ""  # Path to the source data set
+        self._source_path = "/home/tzhang/nersemble_data/074_UNION10"  # Path to the source data set
         self._target_path = ""  # Path to the target data set for pose and expression transfer
-        self._model_path = ""  # Path to the folder to save trained models
+        self._model_path = "./output/140_union10_full_paper"  # Path to the folder to save trained models
         self._images = "images"
         self._resolution = -1
         self._white_background = False
@@ -75,8 +75,8 @@ class PipelineParams(ParamGroup):
         self.compute_cov3D_python = False
         self.depth_ratio = 0.0
         self.debug = False
-        self.train_kinematic = False
-        self.DTF = False
+        self.train_kinematic = True
+        self.DTF = True
         self.rm_bg = False
         self.SGs = False
         self.sg_type = 'asg'
@@ -91,7 +91,7 @@ class PipelineParams(ParamGroup):
 class OptimizationParams(ParamGroup):
     def __init__(self, parser):
         # 3D Gaussians
-        self.iterations = 600_000  # 30_000 (original)
+        self.iterations = 6000  # 30_000 (original)
         self.position_lr_init = 0.005  # (scaled up according to mean triangle scale)  #0.00016 (original)#! *1/0.032
         self.position_lr_final = 0.00005  # (scaled up according to mean triangle scale) # 0.0000016 (original)
         self.position_lr_delay_mult = 0.01
