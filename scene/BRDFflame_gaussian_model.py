@@ -169,40 +169,42 @@ class BRDFFlameGaussianModel(FlameGaussianModel):
             # breakpoint()
             self.blend_weight = nn.Parameter(bw.requires_grad_(True))
 
-    def training_setup(self, training_args):  # ! 2
-        super().training_setup(training_args)
+    def training_setup(self, training_args):
+        self.fix_brdf_lr = training_args.fix_brdf_lr
+        self.percent_dense = training_args.percent_dense
+        self.xyz_gradient_accum = torch.zeros((self.get_xyz.shape[0], 1), device="cuda")
+        self.denom = torch.zeros((self.get_xyz.shape[0], 1), device="cuda")
 
-        if self.not_finetune_flame_params:
-            return
-
-        # # shape
-        # self.flame_param['shape'].requires_grad = True
-        # param_shape = {'params': [self.flame_param['shape']], 'lr': 1e-5, "name": "shape"}
-        # self.optimizer.add_param_group(param_shape)
-
-        # pose
-        self.flame_param['rotation'].requires_grad = True
-        self.flame_param['neck_pose'].requires_grad = True
-        self.flame_param['jaw_pose'].requires_grad = True
-        self.flame_param['eyes_pose'].requires_grad = True
-        params = [
-            self.flame_param['rotation'],
-            self.flame_param['neck_pose'],
-            self.flame_param['jaw_pose'],
-            self.flame_param['eyes_pose'],
+        l = [
+            {'params': [self._xyz], 'lr': training_args.position_lr_init * self.spatial_lr_scale, "name": "xyz"},
+            {'params': [self._features_dc], 'lr': training_args.feature_lr, "name": "f_dc"},
+            {'params': [self._features_rest], 'lr': training_args.feature_lr / 20.0, "name": "f_rest"},
+            {'params': [self._opacity], 'lr': training_args.opacity_lr, "name": "opacity"},
+            {'params': [self._scaling], 'lr': training_args.scaling_lr * self.spatial_lr_scale, "name": "scaling"},
+            {'params': [self._rotation], 'lr': training_args.rotation_lr, "name": "rotation"}
         ]
-        param_pose = {'params': params, 'lr': training_args.flame_pose_lr, "name": "pose"}
-        self.optimizer.add_param_group(param_pose)
+        if self.brdf:
+            self._normal.requires_grad_(requires_grad=False)
+            l.extend([
+                {'params': list(self.brdf_mlp.parameters()), 'lr': training_args.brdf_mlp_lr_init, "name": "brdf_mlp"},
+                {'params': [self._roughness], 'lr': training_args.roughness_lr, "name": "roughness"},
+                {'params': [self._specular], 'lr': training_args.specular_lr, "name": "specular"},
+                {'params': [self._normal], 'lr': training_args.normal_lr, "name": "normal"},
+            ])
+            self._normal2.requires_grad_(requires_grad=False)
+            l.extend([
+                {'params': [self._normal2], 'lr': training_args.normal_lr, "name": "normal2"},
+            ])
 
-        # translation
-        self.flame_param['translation'].requires_grad = True
-        param_trans = {'params': [self.flame_param['translation']], 'lr': training_args.flame_trans_lr, "name": "trans"}
-        self.optimizer.add_param_group(param_trans)
-
-        # expression
-        self.flame_param['expr'].requires_grad = True
-        param_expr = {'params': [self.flame_param['expr']], 'lr': training_args.flame_expr_lr, "name": "expr"}
-        self.optimizer.add_param_group(param_expr)
+        self.optimizer = torch.optim.Adam(l, lr=0.0, eps=1e-15)
+        self.xyz_scheduler_args = get_expon_lr_func(lr_init=training_args.position_lr_init * self.spatial_lr_scale,
+                                                    lr_final=training_args.position_lr_final * self.spatial_lr_scale,
+                                                    lr_delay_mult=training_args.position_lr_delay_mult,
+                                                    max_steps=training_args.position_lr_max_steps)
+        self.brdf_mlp_scheduler_args = get_expon_lr_func(lr_init=training_args.brdf_mlp_lr_init,
+                                                         lr_final=training_args.brdf_mlp_lr_final,
+                                                         lr_delay_mult=training_args.brdf_mlp_lr_delay_mult,
+                                                         max_steps=training_args.brdf_mlp_lr_max_steps)
 
     def set_training_stage(self, stage):
 
@@ -230,7 +232,7 @@ class BRDFFlameGaussianModel(FlameGaussianModel):
                                        'brdf_mlp', 'flame_param'])
 
     def _freeze_parameters(self, param_names):
-        """冻结指定参数"""
+
         for name in param_names:
             if hasattr(self, name):
                 param = getattr(self, name)
@@ -241,7 +243,7 @@ class BRDFFlameGaussianModel(FlameGaussianModel):
                         p.requires_grad = False
 
     def _unfreeze_parameters(self, param_names):
-        """解冻指定参数"""
+
         for name in param_names:
             if hasattr(self, name):
                 param = getattr(self, name)
@@ -251,7 +253,7 @@ class BRDFFlameGaussianModel(FlameGaussianModel):
                     for p in param.parameters():
                         p.requires_grad = True
 
-    # 重写PLY加载方法以支持BRDF参数
+
     def load_ply(self, path, **kwargs):
         # 先调用父类加载基础参数
         super().load_ply(path, **kwargs)

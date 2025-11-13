@@ -62,11 +62,17 @@ class ModelParams(ParamGroup):
         self.select_camera_id = -1
         self.backface_culling_smooth = True
         self.backface_culling_hard =  False
+
+        # brdf
+        self.brdf_dim = 0
+        self.brdf_mode = "envmap"
+        self.brdf_envmap_res = 64
         super().__init__(parser, "Loading Parameters", sentinel)
 
     def extract(self, args):
         g = super().extract(args)
         g.source_path = os.path.abspath(g.source_path)
+        g.brdf = g.brdf_dim >= 0
         return g
 
 class PipelineParams(ParamGroup):
@@ -86,6 +92,9 @@ class PipelineParams(ParamGroup):
         self.detach_boundary = False
         self.tight_pruning_threshold = 0.0
         self.spec_only_eyeball = False
+
+
+        self.brdf = False
         super().__init__(parser, "Pipeline Parameters")
 
 class OptimizationParams(ParamGroup):
@@ -142,6 +151,23 @@ class OptimizationParams(ParamGroup):
         self.lambda_eye_alpha = 0.
 
         self.specular_lr_max_steps = 300_000
+
+        # for brdf
+
+        self.brdf_mlp_lr_init = 1.6e-2
+        self.brdf_mlp_lr_final = 1.6e-3
+        self.brdf_mlp_lr_delay_mult = 0.01
+        self.brdf_mlp_lr_max_steps = 30_000
+        self.normal_lr = 0.0002
+        self.specular_lr = 0.0002
+        self.roughness_lr = 0.0002
+        self.normal_reg_from_iter = 0
+        self.normal_reg_util_iter = 30_000
+        self.lambda_zero_one = 1e-3
+        self.lambda_predicted_normal = 2e-1
+        self.lambda_delta_reg = 1e-3
+        self.fix_brdf_lr = 0
+
         super().__init__(parser, "Optimization Parameters")
 
 def get_combined_args(parser : ArgumentParser):

@@ -326,6 +326,9 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
         losses['total'] = sum([v for k, v in losses.items()])
         
         losses['total'].backward()
+
+
+
         if pipe.detach_eyeball_geometry:
             if pipe.train_kinematic:
                 mask = torch.isin(gaussians.binding, gaussians.flame_model.mask.f.eyeballs)
@@ -402,6 +405,10 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
        
             training_report(tb_writer, iteration, losses, iter_start.elapsed_time(iter_end), \
                             testing_iterations, scene, render, render_args, specular_mlp)
+
+
+
+
             if (iteration in saving_iterations):
                 print("[ITER {}] Saving Gaussians".format(iteration))
                 scene.save(iteration)
