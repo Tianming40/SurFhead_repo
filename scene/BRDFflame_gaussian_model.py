@@ -46,8 +46,8 @@ class BRDFFlameGaussianModel(FlameGaussianModel):
         self.brdf_mode = brdf_mode
         self.brdf_envmap_res = brdf_envmap_res
 
-        self._normal = torch.empty(0)
-        self._normal2 = torch.empty(0)
+
+
         self._specular = torch.empty(0)
         self._roughness = torch.empty(0)
 
@@ -84,95 +84,17 @@ class BRDFFlameGaussianModel(FlameGaussianModel):
     def get_brdf_features(self):
         return self._features_rest
 
-
-
     def create_from_pcd(self, pcd: Optional[BasicPointCloud], spatial_lr_scale: float):
-        self.spatial_lr_scale = spatial_lr_scale
-        if pcd == None:
-            assert self.binding is not None
-            num_pts = self.binding.shape[0]
-            fused_point_cloud = torch.zeros((num_pts, 3)).float().cuda()
-            fused_color = torch.tensor(np.random.random((num_pts, 3)) / 255.0).float().cuda()
-        else:
-            if not self.brdf:
-                fused_color = RGB2SH(torch.tensor(np.asarray(pcd.colors)).float().cuda())
-                features = torch.zeros((fused_color.shape[0], 3, (self.max_sh_degree + 1) ** 2)).float().cuda()
-                features[:, :3, 0] = fused_color
-                features[:, 3:, 1:] = 0.0
-            elif (self.brdf_mode == "envmap" and self.brdf_dim == 0):
-                fused_color = torch.tensor(np.asarray(pcd.colors)).float().cuda()
-                features = torch.zeros((fused_color.shape[0], self.brdf_dim + 3)).float().cuda()
-                features[:, :3] = fused_color
-                features[:, 3:] = 0.0
-            elif self.brdf_mode == "envmap" and self.brdf_dim > 0:
-                fused_color = torch.tensor(np.asarray(pcd.colors)).float().cuda()
-                features = torch.zeros((fused_color.shape[0], 3)).float().cuda()
-                features[:, :3] = fused_color
-                features[:, 3:] = 0.0
-                features_rest = torch.zeros((fused_color.shape[0], 3, (self.brdf_dim + 1) ** 2)).float().cuda()
-            else:
-                raise NotImplementedError
-
-
-        self._xyz = nn.Parameter(fused_point_cloud.requires_grad_(True))
-        if not self.brdf:
-            self._features_dc = nn.Parameter(features[:,:,0:1].transpose(1, 2).contiguous().requires_grad_(True))
-            self._features_rest = nn.Parameter(features[:,:,1:].transpose(1, 2).contiguous().requires_grad_(True))
-        else:
-            self._features_dc = nn.Parameter(features[:,:3].contiguous().requires_grad_(True))
-            if (self.brdf_mode=="envmap" and self.brdf_dim==0):
-                self._features_rest = nn.Parameter(features[:,3:].contiguous().requires_grad_(True))
-            elif self.brdf_mode=="envmap":
-                self._features_rest = nn.Parameter(features_rest.contiguous().requires_grad_(True))
-
-        sg_features = torch.zeros((fused_color.shape[0], self.max_sg_degree)).float().cuda()
-
-        print("Number of points at initialisation: ", self.get_xyz.shape[0])
-
-        if self.binding is None:
-            dist2 = torch.clamp_min(distCUDA2(self.get_xyz), 0.0000001)
-            scales = torch.log(torch.sqrt(dist2))[..., None].repeat(1, 2)
-        else:
-
-            scales = torch.log(torch.ones((self.get_xyz.shape[0], 2), device="cuda"))
-        rots = torch.zeros((fused_point_cloud.shape[0], 4), device="cuda")
-        rots[:, 0] = 1
-
-        opacities = inverse_sigmoid(0.1 * torch.ones((fused_point_cloud.shape[0], 1), dtype=torch.float, device="cuda"))
-        self._scaling = nn.Parameter(scales.requires_grad_(True))
-        self._rotation = nn.Parameter(rots.requires_grad_(True))
-        self._opacity = nn.Parameter(opacities.requires_grad_(True))
-        self.max_radii2D = torch.zeros((self.get_xyz.shape[0]), device="cuda")
-
-        self._features_sg = nn.Parameter(sg_features.requires_grad_(True))
-
-        if self.train_kinematic:
-
-            # identity = inverse_sigmoid(torch.ones((self._xyz.shape[0],1), device="cuda")) #!1
-            # neighbour = inverse_sigmoid(torch.ones((self._xyz.shape[0],3)*0.01, device="cuda"))  #!3
-            identity = inverse_sigmoid(0.9 * torch.ones((self._xyz.shape[0], 1), device="cuda"))  # !1
-            neighbour = inverse_sigmoid(0.05 * torch.ones((self._xyz.shape[0], 3), device="cuda"))
-
-            # identity = inverse_sigmoid(torch.ones((self._xyz.shape[0],1), device="cuda")) #!1
-            # neighbour = inverse_sigmoid(torch.zeros((self._xyz.shape[0],3), device="cuda"))
-            boundary_mask = torch.isin(self.binding, self.flame_model.mask.f.boundary)
-            boundary_indices = torch.nonzero(boundary_mask).squeeze(1)
-
-            if self.detach_boundary:
-                identity[boundary_indices] = inverse_sigmoid(
-                    (1 - (1e-10)) * torch.ones((self._xyz[boundary_indices].shape[0], 1), device="cuda"))
-                neighbour[boundary_indices] = inverse_sigmoid(
-                    (1e-10) * torch.ones((self._xyz[boundary_indices].shape[0], 3), device="cuda"))
-
-            bw = torch.cat((identity, neighbour), 1)  # .cuda()
-            # self.blend_weight = nn.Parameter(.requires_grad_(True))
-            # breakpoint()
-            self.blend_weight = nn.Parameter(bw.requires_grad_(True))
+        pass
 
     def training_setup(self, training_args):
-        self.fix_brdf_lr = training_args.fix_brdf_lr
         self.percent_dense = training_args.percent_dense
         self.xyz_gradient_accum = torch.zeros((self.get_xyz.shape[0], 1), device="cuda")
+        self.xyz_gradient_accum_abs = torch.zeros((self.get_xyz.shape[0], 1), device="cuda")
+        self.xyz_gradient_accum_abs_max = torch.zeros((self.get_xyz.shape[0], 1), device="cuda")
+        # self.tightpruning__mask = torch.zeros((self.get_xyz.shape[0], 1), device="cuda")
+        self.tight_visibility_mask = torch.zeros((self.get_xyz.shape[0]), device="cuda")  # 초기화
+
         self.denom = torch.zeros((self.get_xyz.shape[0], 1), device="cuda")
 
         l = [
@@ -180,97 +102,103 @@ class BRDFFlameGaussianModel(FlameGaussianModel):
             {'params': [self._features_dc], 'lr': training_args.feature_lr, "name": "f_dc"},
             {'params': [self._features_rest], 'lr': training_args.feature_lr / 20.0, "name": "f_rest"},
             {'params': [self._opacity], 'lr': training_args.opacity_lr, "name": "opacity"},
-            {'params': [self._scaling], 'lr': training_args.scaling_lr * self.spatial_lr_scale, "name": "scaling"},
-            {'params': [self._rotation], 'lr': training_args.rotation_lr, "name": "rotation"}
+            {'params': [self._scaling], 'lr': training_args.scaling_lr, "name": "scaling"},
+            {'params': [self._rotation], 'lr': training_args.rotation_lr, "name": "rotation"},
+            {'params': [self._features_sg], 'lr': training_args.feature_lr, "name": "f_sg"},
         ]
+
+        if self.train_kinematic:
+            l.append({'params': [self.blend_weight], 'lr': training_args.blend_weight_lr, "name": "blend_weight"})
+        # breakpoint()
+
         if self.brdf:
-            self._normal.requires_grad_(requires_grad=False)
             l.extend([
                 {'params': list(self.brdf_mlp.parameters()), 'lr': training_args.brdf_mlp_lr_init, "name": "brdf_mlp"},
                 {'params': [self._roughness], 'lr': training_args.roughness_lr, "name": "roughness"},
                 {'params': [self._specular], 'lr': training_args.specular_lr, "name": "specular"},
-                {'params': [self._normal], 'lr': training_args.normal_lr, "name": "normal"},
-            ])
-            self._normal2.requires_grad_(requires_grad=False)
-            l.extend([
-                {'params': [self._normal2], 'lr': training_args.normal_lr, "name": "normal2"},
             ])
 
+
+
         self.optimizer = torch.optim.Adam(l, lr=0.0, eps=1e-15)
+
         self.xyz_scheduler_args = get_expon_lr_func(lr_init=training_args.position_lr_init * self.spatial_lr_scale,
                                                     lr_final=training_args.position_lr_final * self.spatial_lr_scale,
                                                     lr_delay_mult=training_args.position_lr_delay_mult,
                                                     max_steps=training_args.position_lr_max_steps)
+
+        self.blend_weight_scheduler_args = get_expon_lr_func(
+            lr_init=training_args.blend_weight_lr * self.spatial_lr_scale,
+            lr_final=(training_args.blend_weight_lr / 100.0) * self.spatial_lr_scale,
+            lr_delay_mult=training_args.position_lr_delay_mult,
+            max_steps=training_args.position_lr_max_steps)
+
+
         self.brdf_mlp_scheduler_args = get_expon_lr_func(lr_init=training_args.brdf_mlp_lr_init,
                                                          lr_final=training_args.brdf_mlp_lr_final,
                                                          lr_delay_mult=training_args.brdf_mlp_lr_delay_mult,
                                                          max_steps=training_args.brdf_mlp_lr_max_steps)
+    def _update_learning_rate(self, iteration, param):
+        for param_group in self.optimizer.param_groups:
+            if param_group["name"] == param:
+                try:
+                    lr = getattr(self, f"{param}_scheduler_args", self.brdf_mlp_scheduler_args)(iteration)
+                    param_group['lr'] = lr
+                    return lr
+                except AttributeError:
+                    pass
+
+    def update_learning_rate(self, iteration):
+        ''' Learning rate scheduling per step '''
+        self._update_learning_rate(iteration, "xyz")
+        if self.brdf and not self.fix_brdf_lr:
+            for param in ["brdf_mlp","roughness","specular","f_dc", "f_rest"]:
+                self._update_learning_rate(iteration, param)
 
     def set_training_stage(self, stage):
-
         self.training_stage = stage
 
         if stage == 1:
+            self.set_requires_grad("specular", False)
+            self.set_requires_grad("roughness", False)
+            self.brdf_mlp.requires_grad_(False)
 
-            self._freeze_parameters(['_normal', '_normal2', '_specular', '_roughness', 'brdf_mlp'])
-            self._unfreeze_parameters(['_xyz', '_scaling', '_rotation', '_opacity',
-                                       '_features_dc', '_features_rest', '_features_sg',
-                                       'flame_param'])
+
+            self.set_requires_grad("xyz", True)
+            self.set_requires_grad("scaling", True)
+            self.set_requires_grad("rotation", True)
+            self.set_requires_grad("opacity", True)
+            self.set_requires_grad("features_dc", True)
+            self.set_requires_grad("features_rest", True)
+            self.set_requires_grad("features_sg", True)
 
         elif stage == 2:
 
-            self._freeze_parameters(['_xyz', '_scaling', '_rotation', '_opacity',
-                                     '_features_dc', '_features_rest', '_features_sg',
-                                     'flame_param'])
-            self._unfreeze_parameters(['_normal', '_normal2', '_specular', '_roughness'])
+            self.set_requires_grad("specular", True)
+            self.set_requires_grad("roughness", True)
+            self.set_requires_grad("features_dc", True)
+            self.set_requires_grad("features_rest", True)
+            self.brdf_mlp.requires_grad_(False)
+
+            self.set_requires_grad("xyz", False)
+            self.set_requires_grad("scaling", False)
+            self.set_requires_grad("rotation", False)
+            self.set_requires_grad("opacity", False)
+            self.set_requires_grad("features_sg", False)
 
         elif stage == 3:
 
-            self._unfreeze_parameters(['_xyz', '_scaling', '_rotation', '_opacity',
-                                       '_features_dc', '_features_rest', '_features_sg',
-                                       '_normal', '_normal2', '_specular', '_roughness',
-                                       'brdf_mlp', 'flame_param'])
+            self.set_requires_grad("specular", True)
+            self.set_requires_grad("roughness", True)
+            self.brdf_mlp.requires_grad_(True)
 
-    def _freeze_parameters(self, param_names):
+            self.set_requires_grad("xyz", True)
+            self.set_requires_grad("scaling", True)
+            self.set_requires_grad("rotation", True)
+            self.set_requires_grad("opacity", True)
+            self.set_requires_grad("features_dc", True)
+            self.set_requires_grad("features_rest", True)
+            self.set_requires_grad("features_sg", True)
 
-        for name in param_names:
-            if hasattr(self, name):
-                param = getattr(self, name)
-                if isinstance(param, nn.Parameter):
-                    param.requires_grad = False
-                elif isinstance(param, nn.Module):
-                    for p in param.parameters():
-                        p.requires_grad = False
-
-    def _unfreeze_parameters(self, param_names):
-
-        for name in param_names:
-            if hasattr(self, name):
-                param = getattr(self, name)
-                if isinstance(param, nn.Parameter):
-                    param.requires_grad = True
-                elif isinstance(param, nn.Module):
-                    for p in param.parameters():
-                        p.requires_grad = True
-
-
-    def load_ply(self, path, **kwargs):
-        # 先调用父类加载基础参数
-        super().load_ply(path, **kwargs)
-
-        # 然后加载BRDF参数（如果PLY文件中存在）
-        if self.brdf:
-            plydata = PlyData.read(path)
-
-            # 加载法线参数
-            if 'nx' in plydata.elements[0] and 'ny' in plydata.elements[0] and 'nz' in plydata.elements[0]:
-                normal = np.stack([
-                    np.asarray(plydata.elements[0]["nx"]),
-                    np.asarray(plydata.elements[0]["ny"]),
-                    np.asarray(plydata.elements[0]["nz"])
-                ], axis=1)
-                self._normal = nn.Parameter(
-                    torch.tensor(normal, device="cuda", dtype=torch.float32).requires_grad_(True)
-                )
-
-            # 加载其他BRDF参数...
+    def set_requires_grad(self, attrib_name, state: bool):
+        getattr(self, f"_{attrib_name}").requires_grad = state

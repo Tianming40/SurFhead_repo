@@ -200,12 +200,6 @@ class GaussianModel:
             normal = build_rotation(full_rot)[..., 2:]
             if self.DTF: #! Rr
 
-
-                # rot = self.rotation_activation(self._rotation)[self.binding]
-                # face_orien_quat = self.rotation_activation(self.face_orien_quat[self.binding])
-                # full_rot = quat_xyzw_to_wxyz(quat_product(quat_wxyz_to_xyzw(face_orien_quat), quat_wxyz_to_xyzw(rot))) #? same as get rotation
-                # normal = build_rotation(full_rot)[..., 2:]
-
                 if self.train_kinematic:
                 # if False:
                     blended_Jacobian = self.blended_Jacobian

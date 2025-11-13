@@ -170,7 +170,7 @@ def render(viewpoint_camera, pc : Union[GaussianModel, FlameGaussianModel], pipe
         Jacobians = Jacobians,
         Jacobians_inv = Jacobians_inv)#*
     
-    
+    # allmap[0:7] = [intersectdeepth, alpha, normalxyz, deepthmean, ]
     render_bucket.update({"render": rendered_image, #* 0-1
             "viewspace_points": means2D,
             "visibility_filter" : radii > 0,
