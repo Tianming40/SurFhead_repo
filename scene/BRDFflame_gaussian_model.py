@@ -85,6 +85,7 @@ class BRDFFlameGaussianModel(FlameGaussianModel):
         return self._features_rest
 
     def create_from_pcd(self, pcd: Optional[BasicPointCloud], spatial_lr_scale: float):
+        # TODO
         pass
 
     def training_setup(self, training_args):
@@ -93,7 +94,7 @@ class BRDFFlameGaussianModel(FlameGaussianModel):
         self.xyz_gradient_accum_abs = torch.zeros((self.get_xyz.shape[0], 1), device="cuda")
         self.xyz_gradient_accum_abs_max = torch.zeros((self.get_xyz.shape[0], 1), device="cuda")
         # self.tightpruning__mask = torch.zeros((self.get_xyz.shape[0], 1), device="cuda")
-        self.tight_visibility_mask = torch.zeros((self.get_xyz.shape[0]), device="cuda")  # 초기화
+        self.tight_visibility_mask = torch.zeros((self.get_xyz.shape[0]), device="cuda")
 
         self.denom = torch.zeros((self.get_xyz.shape[0], 1), device="cuda")
 
