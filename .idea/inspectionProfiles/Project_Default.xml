@@ -1,0 +1,30 @@
+<component name="InspectionProjectProfileManager">
+  <profile version="1.0">
+    <option name="myName" value="Project Default" />
+    <inspection_tool class="PyPackageRequirementsInspection" enabled="true" level="WARNING" enabled_by_default="true">
+      <option name="ignoredPackages">
+        <list>
+          <option value="tqdm" />
+          <option value="numpy" />
+          <option value="matplotlib" />
+          <option value="scipy" />
+          <option value="chumpy" />
+          <option value="tensorboard" />
+          <option value="fvcore" />
+          <option value="iopath" />
+          <option value="plyfile" />
+          <option value="tyro" />
+          <option value="dearpygui" />
+          <option value="roma" />
+          <option value="mediapy" />
+          <option value="trimesh" />
+          <option value="kornia" />
+          <option value="open3d" />
+          <option value="opencv-python-headless" />
+          <option value="nvdiffrast" />
+          <option value="pytorch3d" />
+        </list>
+      </option>
+    </inspection_tool>
+  </profile>
+</component>

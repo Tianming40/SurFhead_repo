@@ -1,0 +1,568 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="AutoImportSettings">
+    <option name="autoReloadType" value="SELECTIVE" />
+  </component>
+  <component name="ChangeListManager">
+    <list default="true" id="2ab7884c-1cc3-4794-a375-7c2742374aee" name="Changes" comment="traing.py">
+      <change beforePath="$PROJECT_DIR$/render.py" beforeDir="false" afterPath="$PROJECT_DIR$/render.py" afterDir="false" />
+    </list>
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="FileTemplateManagerImpl">
+    <option name="RECENT_TEMPLATES">
+      <list>
+        <option value="Python Script" />
+      </list>
+    </option>
+  </component>
+  <component name="FlaskConsoleOptions" custom-start-script="import sys; print('Python %s on %s' % (sys.version, sys.platform)); sys.path.extend([WORKING_DIR_AND_PYTHON_PATHS])&#10;from flask.cli import ScriptInfo, NoAppException&#10;for module in [&quot;main.py&quot;, &quot;wsgi.py&quot;, &quot;app.py&quot;]:&#10;    try: locals().update(ScriptInfo(app_import_path=module, create_app=None).load_app().make_shell_context()); print(&quot;\nFlask App: %s&quot; % app.import_name); break&#10;    except NoAppException: pass">
+    <envs>
+      <env key="FLASK_APP" value="app" />
+    </envs>
+    <option name="myCustomStartScript" value="import sys; print('Python %s on %s' % (sys.version, sys.platform)); sys.path.extend([WORKING_DIR_AND_PYTHON_PATHS])&#10;from flask.cli import ScriptInfo, NoAppException&#10;for module in [&quot;main.py&quot;, &quot;wsgi.py&quot;, &quot;app.py&quot;]:&#10;    try: locals().update(ScriptInfo(app_import_path=module, create_app=None).load_app().make_shell_context()); print(&quot;\nFlask App: %s&quot; % app.import_name); break&#10;    except NoAppException: pass" />
+    <option name="myEnvs">
+      <map>
+        <entry key="FLASK_APP" value="app" />
+      </map>
+    </option>
+  </component>
+  <component name="Git.Settings">
+    <option name="RECENT_BRANCH_BY_REPOSITORY">
+      <map>
+        <entry key="$PROJECT_DIR$" value="main" />
+      </map>
+    </option>
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+    <option name="ROOT_SYNC" value="DONT_SYNC" />
+  </component>
+  <component name="GitHubPullRequestSearchHistory">{
+  &quot;lastFilter&quot;: {
+    &quot;state&quot;: &quot;OPEN&quot;,
+    &quot;assignee&quot;: &quot;Tianming40&quot;
+  }
+}</component>
+  <component name="GithubPullRequestsUISettings">{
+  &quot;selectedUrlAndAccountId&quot;: {
+    &quot;url&quot;: &quot;git@github.com:Tianming40/SurFhead_repo.git&quot;,
+    &quot;accountId&quot;: &quot;1354be9e-fed2-41bf-8ad4-6d312c4947bb&quot;
+  }
+}</component>
+  <component name="ProjectColorInfo">{
+  &quot;associatedIndex&quot;: 5
+}</component>
+  <component name="ProjectId" id="34hOkK0OekCFJIrmXFWkAgAn6zT" />
+  <component name="ProjectViewState">
+    <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showLibraryContents" value="true" />
+  </component>
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "ModuleVcsDetector.initialDetectionPerformed": "true",
+    "Python.brdf_train.executor": "Debug",
+    "Python.render.executor": "Debug",
+    "Python.train.executor": "Debug",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252": "true",
+    "RunOnceActivity.git.unshallow": "true",
+    "git-widget-placeholder": "brdf",
+    "ignore.virus.scanning.warn.message": "true",
+    "last_opened_file_path": "D:/Master/SurFhead_repo/flame_model/assets/flame",
+    "node.js.detected.package.eslint": "true",
+    "node.js.detected.package.tslint": "true",
+    "node.js.selected.package.eslint": "(autodetect)",
+    "node.js.selected.package.tslint": "(autodetect)",
+    "nodejs_package_manager_path": "npm",
+    "settings.editor.selected.configurable": "com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable",
+    "vue.rearranger.settings.migration": "true"
+  }
+}]]></component>
+  <component name="RecentsManager">
+    <key name="CopyFile.RECENT_KEYS">
+      <recent name="D:\Master\SurFhead_repo\flame_model\assets\flame" />
+      <recent name="D:\Master\SurFhead_repo\scene" />
+    </key>
+  </component>
+  <component name="SharedIndexes">
+    <attachedChunks>
+      <set>
+        <option value="bundled-js-predefined-d6986cc7102b-3aa1da707db6-JavaScript-PY-252.27397.106" />
+        <option value="bundled-python-sdk-4e2b1448bda8-9a97661f3031-com.jetbrains.pycharm.pro.sharedIndexes.bundled-PY-252.27397.106" />
+      </set>
+    </attachedChunks>
+  </component>
+  <component name="TaskManager">
+    <task active="true" id="Default" summary="Default task">
+      <changelist id="2ab7884c-1cc3-4794-a375-7c2742374aee" name="Changes" comment="" />
+      <created>1761662480006</created>
+      <option name="number" value="Default" />
+      <option name="presentableId" value="Default" />
+      <updated>1761662480006</updated>
+      <workItem from="1761662482063" duration="8529000" />
+      <workItem from="1761724304243" duration="25588000" />
+      <workItem from="1761808664362" duration="9512000" />
+      <workItem from="1761822498662" duration="5484000" />
+      <workItem from="1761899313875" duration="11739000" />
+      <workItem from="1761980887623" duration="4286000" />
+      <workItem from="1762185419864" duration="3600000" />
+      <workItem from="1762262636633" duration="2473000" />
+      <workItem from="1762327833660" duration="14640000" />
+      <workItem from="1762348226754" duration="10430000" />
+      <workItem from="1762368246493" duration="2192000" />
+      <workItem from="1762413518206" duration="11330000" />
+      <workItem from="1762501837981" duration="19275000" />
+      <workItem from="1762762336147" duration="18442000" />
+      <workItem from="1762851982463" duration="8921000" />
+      <workItem from="1762865227443" duration="6414000" />
+      <workItem from="1762949328241" duration="1073000" />
+      <workItem from="1762950934387" duration="4134000" />
+      <workItem from="1763021262066" duration="18859000" />
+      <workItem from="1763053772585" duration="9170000" />
+      <workItem from="1763368249485" duration="5075000" />
+    </task>
+    <task id="LOCAL-00001" summary="test">
+      <option name="closed" value="true" />
+      <created>1761662556356</created>
+      <option name="number" value="00001" />
+      <option name="presentableId" value="LOCAL-00001" />
+      <option name="project" value="LOCAL" />
+      <updated>1761662556356</updated>
+    </task>
+    <task id="LOCAL-00002" summary="delate useless pipeline para">
+      <option name="closed" value="true" />
+      <created>1761664972537</created>
+      <option name="number" value="00002" />
+      <option name="presentableId" value="LOCAL-00002" />
+      <option name="project" value="LOCAL" />
+      <updated>1761664972537</updated>
+    </task>
+    <task id="LOCAL-00003" summary="path error">
+      <option name="closed" value="true" />
+      <created>1761666178288</created>
+      <option name="number" value="00003" />
+      <option name="presentableId" value="LOCAL-00003" />
+      <option name="project" value="LOCAL" />
+      <updated>1761666178288</updated>
+    </task>
+    <task id="LOCAL-00004" summary="data type">
+      <option name="closed" value="true" />
+      <created>1761667368565</created>
+      <option name="number" value="00004" />
+      <option name="presentableId" value="LOCAL-00004" />
+      <option name="project" value="LOCAL" />
+      <updated>1761667368565</updated>
+    </task>
+    <task id="LOCAL-00005" summary="para">
+      <option name="closed" value="true" />
+      <created>1761668580290</created>
+      <option name="number" value="00005" />
+      <option name="presentableId" value="LOCAL-00005" />
+      <option name="project" value="LOCAL" />
+      <updated>1761668580290</updated>
+    </task>
+    <task id="LOCAL-00006" summary="para">
+      <option name="closed" value="true" />
+      <created>1761669451673</created>
+      <option name="number" value="00006" />
+      <option name="presentableId" value="LOCAL-00006" />
+      <option name="project" value="LOCAL" />
+      <updated>1761669451673</updated>
+    </task>
+    <task id="LOCAL-00007" summary="para print">
+      <option name="closed" value="true" />
+      <created>1761669983273</created>
+      <option name="number" value="00007" />
+      <option name="presentableId" value="LOCAL-00007" />
+      <option name="project" value="LOCAL" />
+      <updated>1761669983273</updated>
+    </task>
+    <task id="LOCAL-00008" summary="local viewer">
+      <option name="closed" value="true" />
+      <created>1761733018823</created>
+      <option name="number" value="00008" />
+      <option name="presentableId" value="LOCAL-00008" />
+      <option name="project" value="LOCAL" />
+      <updated>1761733018823</updated>
+    </task>
+    <task id="LOCAL-00009" summary="local viewer">
+      <option name="closed" value="true" />
+      <created>1761733964739</created>
+      <option name="number" value="00009" />
+      <option name="presentableId" value="LOCAL-00009" />
+      <option name="project" value="LOCAL" />
+      <updated>1761733964739</updated>
+    </task>
+    <task id="LOCAL-00010" summary="local viewer">
+      <option name="closed" value="true" />
+      <created>1761734844910</created>
+      <option name="number" value="00010" />
+      <option name="presentableId" value="LOCAL-00010" />
+      <option name="project" value="LOCAL" />
+      <updated>1761734844910</updated>
+    </task>
+    <task id="LOCAL-00011" summary="local viewer">
+      <option name="closed" value="true" />
+      <created>1761735437772</created>
+      <option name="number" value="00011" />
+      <option name="presentableId" value="LOCAL-00011" />
+      <option name="project" value="LOCAL" />
+      <updated>1761735437772</updated>
+    </task>
+    <task id="LOCAL-00012" summary="local viewer">
+      <option name="closed" value="true" />
+      <created>1761735526685</created>
+      <option name="number" value="00012" />
+      <option name="presentableId" value="LOCAL-00012" />
+      <option name="project" value="LOCAL" />
+      <updated>1761735526685</updated>
+    </task>
+    <task id="LOCAL-00013" summary="local viewer">
+      <option name="closed" value="true" />
+      <created>1761735594406</created>
+      <option name="number" value="00013" />
+      <option name="presentableId" value="LOCAL-00013" />
+      <option name="project" value="LOCAL" />
+      <updated>1761735594406</updated>
+    </task>
+    <task id="LOCAL-00014" summary="local viewer">
+      <option name="closed" value="true" />
+      <created>1761735720239</created>
+      <option name="number" value="00014" />
+      <option name="presentableId" value="LOCAL-00014" />
+      <option name="project" value="LOCAL" />
+      <updated>1761735720239</updated>
+    </task>
+    <task id="LOCAL-00015" summary="local viewer">
+      <option name="closed" value="true" />
+      <created>1761736447897</created>
+      <option name="number" value="00015" />
+      <option name="presentableId" value="LOCAL-00015" />
+      <option name="project" value="LOCAL" />
+      <updated>1761736447897</updated>
+    </task>
+    <task id="LOCAL-00016" summary="render path">
+      <option name="closed" value="true" />
+      <created>1761744658591</created>
+      <option name="number" value="00016" />
+      <option name="presentableId" value="LOCAL-00016" />
+      <option name="project" value="LOCAL" />
+      <updated>1761744658591</updated>
+    </task>
+    <task id="LOCAL-00017" summary="para">
+      <option name="closed" value="true" />
+      <created>1761746360696</created>
+      <option name="number" value="00017" />
+      <option name="presentableId" value="LOCAL-00017" />
+      <option name="project" value="LOCAL" />
+      <updated>1761746360696</updated>
+    </task>
+    <task id="LOCAL-00018" summary="para">
+      <option name="closed" value="true" />
+      <created>1761746535602</created>
+      <option name="number" value="00018" />
+      <option name="presentableId" value="LOCAL-00018" />
+      <option name="project" value="LOCAL" />
+      <updated>1761746535602</updated>
+    </task>
+    <task id="LOCAL-00019" summary="video">
+      <option name="closed" value="true" />
+      <created>1761747767732</created>
+      <option name="number" value="00019" />
+      <option name="presentableId" value="LOCAL-00019" />
+      <option name="project" value="LOCAL" />
+      <updated>1761747767732</updated>
+    </task>
+    <task id="LOCAL-00020" summary="video">
+      <option name="closed" value="true" />
+      <created>1761749009254</created>
+      <option name="number" value="00020" />
+      <option name="presentableId" value="LOCAL-00020" />
+      <option name="project" value="LOCAL" />
+      <updated>1761749009254</updated>
+    </task>
+    <task id="LOCAL-00021" summary="para">
+      <option name="closed" value="true" />
+      <created>1761766422637</created>
+      <option name="number" value="00021" />
+      <option name="presentableId" value="LOCAL-00021" />
+      <option name="project" value="LOCAL" />
+      <updated>1761766422637</updated>
+    </task>
+    <task id="LOCAL-00022" summary="test">
+      <option name="closed" value="true" />
+      <created>1762328858576</created>
+      <option name="number" value="00022" />
+      <option name="presentableId" value="LOCAL-00022" />
+      <option name="project" value="LOCAL" />
+      <updated>1762328858576</updated>
+    </task>
+    <task id="LOCAL-00023" summary="add stage">
+      <option name="closed" value="true" />
+      <created>1762337041803</created>
+      <option name="number" value="00023" />
+      <option name="presentableId" value="LOCAL-00023" />
+      <option name="project" value="LOCAL" />
+      <updated>1762337041803</updated>
+    </task>
+    <task id="LOCAL-00024" summary="add stage">
+      <option name="closed" value="true" />
+      <created>1762337060436</created>
+      <option name="number" value="00024" />
+      <option name="presentableId" value="LOCAL-00024" />
+      <option name="project" value="LOCAL" />
+      <updated>1762337060436</updated>
+    </task>
+    <task id="LOCAL-00025" summary="add lib">
+      <option name="closed" value="true" />
+      <created>1762341883048</created>
+      <option name="number" value="00025" />
+      <option name="presentableId" value="LOCAL-00025" />
+      <option name="project" value="LOCAL" />
+      <updated>1762341883048</updated>
+    </task>
+    <task id="LOCAL-00026" summary="add brdf para">
+      <option name="closed" value="true" />
+      <created>1762350115293</created>
+      <option name="number" value="00026" />
+      <option name="presentableId" value="LOCAL-00026" />
+      <option name="project" value="LOCAL" />
+      <updated>1762350115293</updated>
+    </task>
+    <task id="LOCAL-00027" summary="add render module">
+      <option name="closed" value="true" />
+      <created>1762351555137</created>
+      <option name="number" value="00027" />
+      <option name="presentableId" value="LOCAL-00027" />
+      <option name="project" value="LOCAL" />
+      <updated>1762351555137</updated>
+    </task>
+    <task id="LOCAL-00028" summary="brdf render function">
+      <option name="closed" value="true" />
+      <created>1762357904449</created>
+      <option name="number" value="00028" />
+      <option name="presentableId" value="LOCAL-00028" />
+      <option name="project" value="LOCAL" />
+      <updated>1762357904449</updated>
+    </task>
+    <task id="LOCAL-00029" summary="brdfrender">
+      <option name="closed" value="true" />
+      <created>1762502704590</created>
+      <option name="number" value="00029" />
+      <option name="presentableId" value="LOCAL-00029" />
+      <option name="project" value="LOCAL" />
+      <updated>1762502704590</updated>
+    </task>
+    <task id="LOCAL-00030" summary="brdfrender">
+      <option name="closed" value="true" />
+      <created>1762762448390</created>
+      <option name="number" value="00030" />
+      <option name="presentableId" value="LOCAL-00030" />
+      <option name="project" value="LOCAL" />
+      <updated>1762762448390</updated>
+    </task>
+    <task id="LOCAL-00031" summary="modify">
+      <option name="closed" value="true" />
+      <created>1762857571329</created>
+      <option name="number" value="00031" />
+      <option name="presentableId" value="LOCAL-00031" />
+      <option name="project" value="LOCAL" />
+      <updated>1762857571329</updated>
+    </task>
+    <task id="LOCAL-00032" summary="modify">
+      <option name="closed" value="true" />
+      <created>1762869929786</created>
+      <option name="number" value="00032" />
+      <option name="presentableId" value="LOCAL-00032" />
+      <option name="project" value="LOCAL" />
+      <updated>1762869929786</updated>
+    </task>
+    <task id="LOCAL-00033" summary="modify">
+      <option name="closed" value="true" />
+      <created>1762871435479</created>
+      <option name="number" value="00033" />
+      <option name="presentableId" value="LOCAL-00033" />
+      <option name="project" value="LOCAL" />
+      <updated>1762871435479</updated>
+    </task>
+    <task id="LOCAL-00034" summary="modify">
+      <option name="closed" value="true" />
+      <created>1762954440048</created>
+      <option name="number" value="00034" />
+      <option name="presentableId" value="LOCAL-00034" />
+      <option name="project" value="LOCAL" />
+      <updated>1762954440048</updated>
+    </task>
+    <task id="LOCAL-00035" summary="traing.py">
+      <option name="closed" value="true" />
+      <created>1763030574586</created>
+      <option name="number" value="00035" />
+      <option name="presentableId" value="LOCAL-00035" />
+      <option name="project" value="LOCAL" />
+      <updated>1763030574587</updated>
+    </task>
+    <task id="LOCAL-00036" summary="traing.py">
+      <option name="closed" value="true" />
+      <created>1763045527852</created>
+      <option name="number" value="00036" />
+      <option name="presentableId" value="LOCAL-00036" />
+      <option name="project" value="LOCAL" />
+      <updated>1763045527852</updated>
+    </task>
+    <task id="LOCAL-00037" summary="traing.py">
+      <option name="closed" value="true" />
+      <created>1763062853772</created>
+      <option name="number" value="00037" />
+      <option name="presentableId" value="LOCAL-00037" />
+      <option name="project" value="LOCAL" />
+      <updated>1763062853772</updated>
+    </task>
+    <option name="localTasksCounter" value="38" />
+    <servers />
+  </component>
+  <component name="TypeScriptGeneratedFilesManager">
+    <option name="version" value="3" />
+  </component>
+  <component name="Vcs.Log.Tabs.Properties">
+    <option name="OPEN_GENERIC_TABS">
+      <map>
+        <entry key="c0f55477-94f3-4f50-90e5-6db96c139d50" value="TOOL_WINDOW" />
+      </map>
+    </option>
+    <option name="RECENT_FILTERS">
+      <map>
+        <entry key="Branch">
+          <value>
+            <list>
+              <RecentGroup>
+                <option name="FILTER_VALUES">
+                  <option value="brdf" />
+                </option>
+              </RecentGroup>
+              <RecentGroup>
+                <option name="FILTER_VALUES">
+                  <option value="main" />
+                </option>
+              </RecentGroup>
+              <RecentGroup>
+                <option name="FILTER_VALUES">
+                  <option value="origin/bssrdf" />
+                </option>
+              </RecentGroup>
+            </list>
+          </value>
+        </entry>
+      </map>
+    </option>
+    <option name="TAB_STATES">
+      <map>
+        <entry key="MAIN">
+          <value>
+            <State>
+              <option name="FILTERS">
+                <map>
+                  <entry key="branch">
+                    <value>
+                      <list>
+                        <option value="brdf" />
+                      </list>
+                    </value>
+                  </entry>
+                </map>
+              </option>
+            </State>
+          </value>
+        </entry>
+        <entry key="c0f55477-94f3-4f50-90e5-6db96c139d50">
+          <value>
+            <State>
+              <option name="CUSTOM_BOOLEAN_PROPERTIES">
+                <map>
+                  <entry key="Show.Git.Branches" value="true" />
+                </map>
+              </option>
+            </State>
+          </value>
+        </entry>
+      </map>
+    </option>
+  </component>
+  <component name="VcsManagerConfiguration">
+    <MESSAGE value="delate useless pipeline para" />
+    <MESSAGE value="path error" />
+    <MESSAGE value="data type" />
+    <MESSAGE value="para print" />
+    <MESSAGE value="local viewer" />
+    <MESSAGE value="render path" />
+    <MESSAGE value="video" />
+    <MESSAGE value="para" />
+    <MESSAGE value="test" />
+    <MESSAGE value="add stage" />
+    <MESSAGE value="add lib" />
+    <MESSAGE value="add brdf para" />
+    <MESSAGE value="add render module" />
+    <MESSAGE value="brdf render function" />
+    <MESSAGE value="brdfrender" />
+    <MESSAGE value="modify" />
+    <MESSAGE value="traing.py" />
+    <option name="LAST_COMMIT_MESSAGE" value="traing.py" />
+  </component>
+  <component name="XDebuggerManager">
+    <breakpoint-manager>
+      <breakpoints>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/train.py</url>
+          <line>62</line>
+          <option name="timeStamp" value="6" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/train.py</url>
+          <line>72</line>
+          <option name="timeStamp" value="7" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/train.py</url>
+          <line>73</line>
+          <option name="timeStamp" value="8" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/train.py</url>
+          <line>92</line>
+          <option name="timeStamp" value="9" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/train.py</url>
+          <line>97</line>
+          <option name="timeStamp" value="10" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/train.py</url>
+          <line>327</line>
+          <option name="timeStamp" value="11" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/train.py</url>
+          <line>212</line>
+          <option name="timeStamp" value="12" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/train.py</url>
+          <line>216</line>
+          <option name="timeStamp" value="13" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/render.py</url>
+          <line>482</line>
+          <option name="timeStamp" value="14" />
+        </line-breakpoint>
+      </breakpoints>
+    </breakpoint-manager>
+  </component>
+  <component name="com.intellij.coverage.CoverageDataManagerImpl">
+    <SUITE FILE_PATH="coverage/SurFhead_repo$train.coverage" NAME="train Coverage Results" MODIFIED="1763053836989" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/SurFhead_repo$brdf_train.coverage" NAME="brdf_train Coverage Results" MODIFIED="1762951506363" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/SurFhead_repo$render.coverage" NAME="render Coverage Results" MODIFIED="1763371260291" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+  </component>
+</project>
