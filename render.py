@@ -23,7 +23,7 @@ from PIL import Image
 import numpy as np
 # from utils.general_utils import colormap
 
-from gaussian_renderer import render, brdr_render
+from gaussian_renderer import render, brdf_render
 from utils.general_utils import safe_state
 from argparse import ArgumentParser
 from arguments import ModelParams, PipelineParams, get_combined_args
