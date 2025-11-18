@@ -23,6 +23,7 @@ from scene import Scene, GaussianModel, FlameGaussianModel, SpecularModel
 from utils.general_utils import safe_state, colormap
 import uuid
 from tqdm import tqdm
+from npz2mesh import nvdiffrecrender
 
 
 from utils.image_utils import psnr, error_map, visualize_gaussians_with_tensor
@@ -71,6 +72,32 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
     else:
         gaussians = GaussianModel(dataset.sh_degree)
     scene = Scene(dataset, gaussians)
+
+    train_cameras = scene.getTrainCameras()
+    print(f"total {len(train_cameras)} camera_flames")
+
+    for i, camera in enumerate(train_cameras):
+        timestep = camera.timestep
+        camera_id = camera.uid
+
+        print(f"{i}: timestep{timestep}, camera{camera_id}")
+
+
+        result = nvdiffrecrender(scene.gaussians, camera, timestep)
+
+        if i >= 10:
+            break
+
+
+
+
+
+
+
+
+
+
+
     gaussians.training_setup(opt) #! from here all trainble parameters are set(e.g., flame_codes, xyz, scaling, dynamic_offset, opacity)
     if checkpoint:
         (model_params, first_iter) = torch.load(checkpoint)
