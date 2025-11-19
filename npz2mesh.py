@@ -3,7 +3,6 @@ import sys
 import os
 
 
-from submodules.nvdiffrec import render as nvdiffrec
 from submodules.nvdiffrec.render.render import render_mesh, render_uv, render_layer
 from submodules.nvdiffrec.render import  light, texture,material
 from submodules.nvdiffrec.render import mesh  as nv_mesh
@@ -73,7 +72,7 @@ def nvdiffrecrender(gaussians, camera_info, timestep=0):
 
 
     color = torch.tensor([0.9, 0.2, 0.2], device='cuda')
-    specular_color = torch.tensor([0.4, 0.4, 0.4], device='cuda')
+    specular_color = torch.tensor([0.3, 0.3, 0.3], device='cuda')
 
     simple_material = material.Material({
         'bsdf': 'pbr',
@@ -84,13 +83,18 @@ def nvdiffrecrender(gaussians, camera_info, timestep=0):
     mesh_obj.material = simple_material
     ctx = dr.RasterizeCudaContext()
 
-    resolution = (512, 512)
 
 
 
     def create_black_light():
-        base_res = 128  # > EnvironmentLight.LIGHT_MIN_RES (16)，确保会生成 mip levels
-        white_base = torch.ones(6, base_res, base_res, 3, device='cuda', dtype=torch.float32) * 0.6
+        base_res = 256  # > EnvironmentLight.LIGHT_MIN_RES (16)
+        white_base = torch.ones(6, base_res, base_res, 3, device='cuda', dtype=torch.float32)
+        white_base[0] = 0.2
+        white_base[1] = 0.1
+        white_base[2] = 0.9
+        white_base[3] = 0.05
+        white_base[4] = 0.3
+        white_base[5] = 0.1
         env_light = light.EnvironmentLight(white_base)
         env_light.build_mips()
 
@@ -99,31 +103,42 @@ def nvdiffrecrender(gaussians, camera_info, timestep=0):
 
     black_light = create_black_light()
 
-    # mtx_in, view_pos = create_test_camera()
-    fovx = camera_info.FoVx
-    fovy = camera_info.FoVy
-    znear = camera_info.znear
-    zfar = camera_info.zfar
+############################################################
+    world_view = camera_info.world_view_transform.cuda().float()
+    if world_view.dim() == 2:
+        world_view = world_view.unsqueeze(0)  # [1,4,4]
 
-    f_x = 1.0 / math.tan(fovx / 2)
-    f_y = 1.0 / math.tan(fovy / 2)
-    proj_matrix = torch.tensor([
-        [f_x, 0, 0, 0],
-        [0, f_y, 0, 0],
-        [0, 0, -(zfar + znear) / (zfar - znear), -2 * zfar * znear / (zfar - znear)],
+    fov = math.radians(60.0)
+    aspect = camera_info.image_width / camera_info.image_height
+    near = 0.1
+    far = 10.0
+
+    f = 1.0 / math.tan(fov * 0.5)
+    proj_matrix = torch.tensor([[
+        [f / aspect, 0, 0, 0],
+        [0, f, 0, 0],
+        [0, 0, -(far + near) / (far - near), -2 * far * near / (far - near)],
         [0, 0, -1, 0]
-    ], dtype=torch.float32, device='cuda')
-    print("proj_matrix",proj_matrix)
+    ]], dtype=torch.float32, device='cuda')
 
-    world_view = camera_info.world_view_transform.float().cuda()
-    print("world_view",world_view)
+    mtx_in = proj_matrix @ world_view# [1,4,4] @ [1,4,4] = [1,4,4]
 
 
-    mtx_in = (proj_matrix @ world_view).unsqueeze(0).float().cuda()
-    view_pos = camera_info.camera_center.unsqueeze(0).unsqueeze(0).unsqueeze(0).float().cuda()
-    print("camera_info",camera_info)
-    print("mtx_in",mtx_in)
-    print("viewpos",view_pos)
+    view_pos = camera_info.camera_center.cuda().float()
+    view_pos = view_pos.unsqueeze(0).unsqueeze(0).unsqueeze(0)  # [1,1,1,3]
+
+    print("=== Gaussian to nvdiffrec Conversion ===")
+    print(f"FoVx: {camera_info.FoVx:.3f}, FoVy: {camera_info.FoVy:.3f}")
+
+    print(f"View matrix shape: {world_view.shape}")
+    print(f"Projection matrix shape: {proj_matrix.shape}")
+    print(f"Combined mtx_in shape: {mtx_in.shape}")
+    print(f"View pos: {view_pos.squeeze()}")
+
+
+########################################################
+    mtx_in, view_pos = create_test_camera()
+
     check_mesh_in_frustum(mesh_obj, mtx_in)
     buffers = render_mesh(
         ctx=ctx,
@@ -131,9 +146,10 @@ def nvdiffrecrender(gaussians, camera_info, timestep=0):
         mtx_in=mtx_in,
         view_pos=view_pos,
         lgt=black_light,
-        resolution=(camera_info.image_height, camera_info.image_width),
+        resolution=(1024, 1024),
+        num_layers=3
     )
-    print(buffers)
+    # print(buffers)
     rendered_image = buffers['shaded'][0, ..., :3].clamp(0, 1)
     view_rendered_result(rendered_image,"picture")
     return buffers

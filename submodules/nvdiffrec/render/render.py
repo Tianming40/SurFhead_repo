@@ -273,3 +273,8 @@ def render_uv(ctx, mesh, resolution, mlp_texture):
     assert all_tex.shape[-1] == 9 or all_tex.shape[-1] == 10, "Combined kd_ks_normal must be 9 or 10 channels"
     perturbed_nrm = all_tex[..., -3:]
     return (rast[..., -1:] > 0).float(), all_tex[..., :-6], all_tex[..., -6:-3], util.safe_normalize(perturbed_nrm)
+
+
+# vertex_shade
+
+
