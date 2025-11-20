@@ -160,3 +160,4 @@ dmypy.json
 
 # meta data in macOS
 .DS_Store
+.idea/
