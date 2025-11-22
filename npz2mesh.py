@@ -1,7 +1,7 @@
 import torch
 import sys
 import os
-
+from typing import Tuple, Literal
 
 from submodules.nvdiffrec.render.render import render_mesh, render_uv, render_layer
 from submodules.nvdiffrec.render import  light, texture,material,util
@@ -10,7 +10,7 @@ import nvdiffrast.torch as dr
 import numpy as np
 from flame_model import flame
 import math
-
+from mesh_renderer import NVDiffRenderer
 
 def flame_to_nvdiffrec_mesh(flame_gaussian_model, timestep=0):
 
@@ -54,7 +54,7 @@ def nvdiffrecrender(gaussians, camera_info, timestep=0):
 
 
     mesh_obj = flame_to_nvdiffrec_mesh(gaussians, timestep=timestep)
-    mesh_obj = nv_mesh.unit_size(mesh_obj)
+    # mesh_obj = nv_mesh.unit_size(mesh_obj)
 
     debug_mesh_info(mesh_obj)
     debug_camera_info(camera_info)
@@ -119,40 +119,102 @@ def nvdiffrecrender(gaussians, camera_info, timestep=0):
     env_light = light.load_env("/home/tzhang/109_hdrmaps_com_free_2K.hdr")
 ############################################################
     world_view = camera_info.world_view_transform.cuda().float()
-    if world_view.dim() == 2:
-        world_view = world_view.unsqueeze(0)  # [1,4,4]
 
-    fov = math.radians(60.0)
-    aspect = camera_info.image_width / camera_info.image_height
-    near = 0.1
-    far = 10.0
+    fovx = camera_info.FoVx
+    fovy = camera_info.FoVy
+    height, width = camera_info.image_height, camera_info.image_width
 
-    f = 1.0 / math.tan(fov * 0.5)
-    proj_matrix = torch.tensor([[
-        [f / aspect, 0, 0, 0],
-        [0, f, 0, 0],
-        [0, 0, -(far + near) / (far - near), -2 * far * near / (far - near)],
-        [0, 0, -1, 0]
-    ]], dtype=torch.float32, device='cuda')
+    # 从FoV计算焦距
+    fx = width / (2 * math.tan(fovx / 2))
+    fy = height / (2 * math.tan(fovy / 2))
+    cx = width / 2  # 假设主点在中心
+    cy = height / 2
 
-    mtx_in = proj_matrix @ world_view# [1,4,4] @ [1,4,4] = [1,4,4]
+    # 构建内参矩阵 K
+    K = torch.tensor([
+        [fx, 0, cx],
+        [0, fy, cy],
+        [0, 0, 1]
+    ], dtype=torch.float32).unsqueeze(0).cuda()
 
+    R = torch.tensor(camera_info.R.T, dtype=torch.float32)  # (3, 3)
+    T = torch.tensor(camera_info.T, dtype=torch.float32)  # (3,)
 
+    # 构建 4x4 的 RT 矩阵
+    RT = torch.eye(4, dtype=torch.float32).unsqueeze(0).cuda()  # (1, 4, 4)
+    RT[0, :3, :3] = R
+    RT[0, :3, 3] = T
+
+    def projection_from_intrinsics( K: torch.Tensor, image_size: Tuple[int], near: float = 0.1, far: float = 100):
+        """
+        Transform points from camera space (x: right, y: up, z: out) to clip space (x: right, y: down, z: in)
+        Args:
+            K: Intrinsic matrix, (N, 3, 3)
+                K = [[
+                            [fx, 0, cx],
+                            [0, fy, cy],
+                            [0,  0,  1],
+                    ]
+                ]
+            image_size: (height, width)
+        Output:
+            proj = [[
+                    [2*fx/w, 0.0,     (w - 2*cx)/w,             0.0                     ],
+                    [0.0,    2*fy/h, (h - 2*cy)/h,             0.0                     ],
+                    [0.0,    0.0,     -(far+near) / (far-near), -2*far*near / (far-near)],
+                    [0.0,    0.0,     -1.0,                     0.0                     ]
+                ]
+            ]
+        """
+
+        B = K.shape[0]
+        h, w = image_size
+
+        if K.shape[-2:] == (3, 3):
+            fx = K[..., 0, 0]
+            fy = K[..., 1, 1]
+            cx = K[..., 0, 2]
+            cy = K[..., 1, 2]
+        elif K.shape[-1] == 4:
+            fx, fy, cx, cy = K[..., [0, 1, 2, 3]].split(1, dim=-1)
+        else:
+            raise ValueError(f"Expected K to be (N, 3, 3) or (N, 4) but got: {K.shape}")
+
+        proj = torch.zeros([B, 4, 4], device=K.device)
+        proj[:, 0, 0] = fx * 2 / w
+        proj[:, 1, 1] = fy * 2 / h
+        proj[:, 0, 2] = (w - 2 * cx) / w
+        proj[:, 1, 2] = (h - 2 * cy) / h
+        proj[:, 2, 2] = -(far + near) / (far - near)
+        proj[:, 2, 3] = -2 * far * near / (far - near)
+        proj[:, 3, 2] = -1
+        return proj
+
+    def mvp_from_camera_param( RT, K, image_size):
+        # projection matrix
+        proj = projection_from_intrinsics(K, image_size)
+
+        # Modelview and modelview + projection matrices.
+        if RT.shape[-2] == 3:
+            mv = torch.nn.functional.pad(RT, [0, 0, 0, 1])
+            mv[..., 3, 3] = 1
+        elif RT.shape[-2] == 4:
+            mv = RT
+        mvp = torch.bmm(proj, mv)
+        return mvp
+
+    # mtx_in = camera_info.full_proj_transform.unsqueeze(0).cuda().float() # [1,4,4] @ [1,4,4] = [1,4,4]
+    mtx_in = mvp_from_camera_param(RT, K, (camera_info.image_height, camera_info.image_width))
+    mtx_in = camera_info.full_proj_transform.T.unsqueeze(0).cuda().float()
     view_pos = camera_info.camera_center.cuda().float()
     view_pos = view_pos.unsqueeze(0).unsqueeze(0).unsqueeze(0)  # [1,1,1,3]
 
-    print("=== Gaussian to nvdiffrec Conversion ===")
-    print(f"FoVx: {camera_info.FoVx:.3f}, FoVy: {camera_info.FoVy:.3f}")
-
-    print(f"View matrix shape: {world_view.shape}")
-    print(f"Projection matrix shape: {proj_matrix.shape}")
-    print(f"Combined mtx_in shape: {mtx_in.shape}")
-    print(f"View pos: {view_pos.squeeze()}")
 
 
 ########################################################
-    mtx_in, view_pos = create_test_camera()
-    test_background = create_background_from_env_light(env_light, (1024, 1024))
+    # mtx_in, view_pos = create_test_camera()
+
+    # test_background = create_background_from_env_light(env_light, (camera_info.image_width, camera_info.image_height))
     check_mesh_in_frustum(mesh_obj, mtx_in)
     buffers = render_mesh(
         ctx=ctx,
@@ -160,9 +222,9 @@ def nvdiffrecrender(gaussians, camera_info, timestep=0):
         mtx_in=mtx_in,
         view_pos=view_pos,
         lgt=env_light,
-        resolution=(1024, 1024),
+        resolution=(camera_info.image_height, camera_info.image_width),
         num_layers=3,
-        background= test_background
+        background= None
     )
     # print(buffers)
     rendered_image = buffers['shaded'][0, ..., :3].clamp(0, 1)
