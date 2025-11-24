@@ -131,7 +131,7 @@ class EnvironmentLight(torch.nn.Module):
 # Load from latlong .HDR file
 def _load_env_hdr(fn, scale=1.0):
     latlong_img = torch.tensor(util.load_image(fn), dtype=torch.float32, device='cuda')*scale
-    cubemap = util.latlong_to_cubemap(latlong_img, [1024, 1024])
+    cubemap = util.latlong_to_cubemap(latlong_img, [512,512])
 
     l = EnvironmentLight(cubemap)
     l.build_mips()

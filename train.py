@@ -71,7 +71,7 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
             print("Mesh renderer not available")
     else:
         gaussians = GaussianModel(dataset.sh_degree)
-    scene = Scene(dataset, gaussians)
+    scene = Scene(dataset, gaussians,shuffle=False)
 
     train_cameras = scene.getTrainCameras()
     print(f"total {len(train_cameras)} camera_flames")
@@ -85,8 +85,7 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
 
         result = nvdiffrecrender(scene.gaussians, camera, timestep)
 
-        if i >= 10:
-            break
+
 
 
 
