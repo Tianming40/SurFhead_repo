@@ -7,13 +7,7 @@ from submodules.nvdiffrec.render.render import render_mesh, render_uv, render_la
 from submodules.nvdiffrec.render import  light, texture,material,util
 from submodules.nvdiffrec.render import mesh  as nv_mesh
 import nvdiffrast.torch as dr
-from submodules.nvdiffrec.render import renderutils as ru
-from submodules.nvdiffrec.render import generate_bg_and_rotate_envir_map as bggen
-import numpy as np
-from flame_model import flame
-import math
-from mesh_renderer import NVDiffRenderer
-from kornia import create_meshgrid
+
 import imageio
 import numpy as np
 import OpenEXR
@@ -78,18 +72,18 @@ def nvdiffrecrender(gaussians, camera_info, timestep=0):
     mesh_obj = flame_to_nvdiffrec_mesh(gaussians, timestep=timestep)
     # mesh_obj = nv_mesh.unit_size(mesh_obj)
 
-    debug_mesh_info(mesh_obj)
-    debug_camera_info(camera_info)
+    # debug_mesh_info(mesh_obj)
+    # debug_camera_info(camera_info)
 
-    if mesh_obj.v_pos is not None and mesh_obj.t_pos_idx is not None:
-        print(f"✓ Successfully converted to Mesh:")
-        print(f"  Vertices: {mesh_obj.v_pos.shape[0]}")
-        print(f"  Faces: {mesh_obj.t_pos_idx.shape[0]}")
-        print(f"  Has normals: {mesh_obj.v_nrm is not None}")
-        print(f"  Has texcoords: {mesh_obj.v_tex is not None}")
-        print(f"  Has tangents: {mesh_obj.v_tng is not None}")
-    else:
-        print("✗ Mesh conversion failed!")
+    # if mesh_obj.v_pos is not None and mesh_obj.t_pos_idx is not None:
+    #     print(f"✓ Successfully converted to Mesh:")
+    #     print(f"  Vertices: {mesh_obj.v_pos.shape[0]}")
+    #     print(f"  Faces: {mesh_obj.t_pos_idx.shape[0]}")
+    #     print(f"  Has normals: {mesh_obj.v_nrm is not None}")
+    #     print(f"  Has texcoords: {mesh_obj.v_tex is not None}")
+    #     print(f"  Has tangents: {mesh_obj.v_tng is not None}")
+    # else:
+    #     print("✗ Mesh conversion failed!")
 
 
     # specular_color = torch.tensor([0.3, 0.3, 0.3], device='cuda')
@@ -124,7 +118,7 @@ def nvdiffrecrender(gaussians, camera_info, timestep=0):
     # mtx_in, view_pos = create_test_camera()
 
     # test_background = create_background_from_env_light(env_light, mtx_in,view_pos,(camera_info.image_width, camera_info.image_height))
-    check_mesh_in_frustum(mesh_obj, mtx_in)
+    # check_mesh_in_frustum(mesh_obj, mtx_in)
     # light.save_env_map("env.hdr", env_light)
     buffers = render_mesh(
         ctx=ctx,
@@ -146,11 +140,10 @@ def nvdiffrecrender(gaussians, camera_info, timestep=0):
 
 def render_background_from_env(env_latlong, camera_info):
     """
-    输入:
+
         env_latlong: [H_env, W_env, 3], float32, CUDA, latlong HDR
         camera_info: 含 full_proj_transform, FoVx, FoVy, image_width, image_height, R, T
 
-    输出:
         background: [1, H, W, 3], float32, CUDA
     """
     import torch

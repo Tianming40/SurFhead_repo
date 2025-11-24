@@ -78,12 +78,12 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
 
     for i, camera in enumerate(train_cameras):
         timestep = camera.timestep
-        camera_id = camera.uid
+        # camera_id = camera.uid
 
-        print(f"{i}: timestep{timestep}, camera{camera_id}")
+        # print(f"{i}: timestep{timestep}, camera{camera_id}")
 
 
-        result = nvdiffrecrender(scene.gaussians, camera, timestep)
+        nvdiffrecrender(scene.gaussians, camera, timestep)
 
 
 
