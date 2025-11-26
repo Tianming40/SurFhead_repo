@@ -12,6 +12,8 @@ import imageio
 import numpy as np
 import OpenEXR
 import Imath
+import pyvista as pv
+import numpy as np
 
 def exr_to_hdr(exr_path, hdr_path):
     # 打开 EXR 文件
@@ -20,16 +22,14 @@ def exr_to_hdr(exr_path, hdr_path):
     H = dw.max.y - dw.min.y + 1
     W = dw.max.x - dw.min.x + 1
 
-    # 读取 RGB 通道
     pt = Imath.PixelType(Imath.PixelType.FLOAT)
     R = np.frombuffer(exr_file.channel('R', pt), dtype=np.float32).reshape(H, W)
     G = np.frombuffer(exr_file.channel('G', pt), dtype=np.float32).reshape(H, W)
     B = np.frombuffer(exr_file.channel('B', pt), dtype=np.float32).reshape(H, W)
 
-    # 拼接成 HWC
+
     img = np.stack([R, G, B], axis=-1)
 
-    # 保存为 HDR
     imageio.imwrite(hdr_path, img, format='HDR-FI')
 def flame_to_nvdiffrec_mesh(flame_gaussian_model, timestep=0):
 
@@ -100,18 +100,80 @@ def nvdiffrecrender(gaussians, camera_info, timestep=0):
     })
 
     mesh_obj.material = simple_material
-    ctx = dr.RasterizeCudaContext()
 
     exr_to_hdr('/home/tzhang/012_hdrmaps_com_free_2K.exr', '/home/tzhang/012_hdrmaps_com_free_2K.hdr')
 
     env_light = light.load_env("/home/tzhang/012_hdrmaps_com_free_2K.hdr")
-
 
     mtx_in = camera_info.full_proj_transform.T.unsqueeze(0).cuda().float()
     view_pos = camera_info.camera_center.cuda().float()
     view_pos = view_pos.unsqueeze(0).unsqueeze(0).unsqueeze(0)  # [1,1,1,3]
 
     env_map = load_env_map("/home/tzhang/012_hdrmaps_com_free_2K.hdr")
+
+
+    gbpos = mesh_obj.v_pos
+    normal = mesh_obj.v_nrm
+
+    vertex_uv_indices = torch.full((5143,), -1, dtype=torch.long, device='cuda')
+    for face_idx in range(10144):
+        for i in range(3):
+            vertex_idx = mesh_obj.t_pos_idx[face_idx, i]
+            uv_idx = mesh_obj.t_tex_idx[face_idx, i]
+            if vertex_uv_indices[vertex_idx] == -1:
+                vertex_uv_indices[vertex_idx] = uv_idx
+
+
+    correct_uvs = mesh_obj.v_tex[vertex_uv_indices]  # [5143, 2]
+    uv_coords = correct_uvs.unsqueeze(0).unsqueeze(0)  # [1, 1, 5143, 2]
+    derivs = torch.zeros(1, 1, 5143, 4, device='cuda')
+    kd_colors = kd_texture.sample(uv_coords, derivs).squeeze(0).squeeze(0)
+
+
+    ks_values = torch.tensor([0.04, 0.4, 0.0], device='cuda').repeat(mesh_obj.v_pos.shape[0], 1)
+    roughness = torch.full((mesh_obj.v_pos.shape[0], 1), 0.4, device='cuda')
+
+    view_pos_flat = view_pos.squeeze()  # 从 [1,1,1,3] 变成 [3]
+    view_pos_expanded = view_pos_flat.repeat(mesh_obj.v_pos.shape[0], 1)
+
+    color, brdf_pkg = env_light.shade2(gbpos[None, None, ...], normal[None, None, ...], kd_colors[None, None, ...], ks_values[None, None, ...],roughness[None, None, ...], view_pos_expanded[None, None, ...])
+
+    colors_precomp = color.squeeze()  # (N, 3)
+    diffuse_color = brdf_pkg['diffuse'].squeeze()  # (N, 3)
+    specular_color = brdf_pkg['specular'].squeeze()  # (N, 3)
+
+    # 转换为numpy
+    colors_np = colors_precomp.detach().cpu().numpy()
+    vertices_np = mesh_obj.v_pos.detach().cpu().numpy()
+    faces_np = mesh_obj.t_pos_idx.detach().cpu().numpy()
+
+    # 创建PyVista网格
+    pv_mesh = pv.PolyData(
+        vertices_np,
+        np.hstack([np.full((len(faces_np), 1), 3), faces_np])
+    )
+
+    # 设置顶点颜色
+    pv_mesh['colors'] = colors_np
+
+    # 保存图片
+    plotter = pv.Plotter(off_screen=True)
+    plotter.add_mesh(pv_mesh, scalars='colors', rgb=True)
+    plotter.screenshot('vertex_colors.png')
+    plotter.close()
+
+    plotter = pv.Plotter(off_screen=True)
+    plotter.add_points(pv_mesh, scalars='colors', rgb=True, point_size=5)  # 只画点
+    plotter.screenshot('vertex_points_only.png')
+    plotter.close()
+
+
+
+
+
+    ctx = dr.RasterizeCudaContext()
+
+
     background = render_background_from_env(env_map, camera_info)
 
     ########################################################
@@ -242,8 +304,7 @@ def debug_camera_info(camera_info):
 
 def view_rendered_result(rendered_image, name):
 
-    import pyvista as pv
-    import numpy as np
+
 
     image_data = (rendered_image.detach().cpu().numpy() * 255).astype(np.uint8)
 
