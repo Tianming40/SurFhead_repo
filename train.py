@@ -86,6 +86,10 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
         nvdiffrecrender(scene.gaussians, camera, timestep)
 
 
+        if i > 100:
+            break
+
+
 
 
 

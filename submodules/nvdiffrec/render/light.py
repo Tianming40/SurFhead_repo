@@ -189,18 +189,42 @@ def _load_env_hdr(fn, scale=1.0):
 
     return l
 
-# def load_env(fn, scale=1.0):
-#     if os.path.splitext(fn)[1].lower() == ".hdr":
-#         return _load_env_hdr(fn, scale)
-#     else:
-#         assert False, "Unknown envlight extension %s" % os.path.splitext(fn)[1]
+
 
 def load_env(fn, scale=1.0):
     ext = os.path.splitext(fn)[1].lower()
     if ext == ".hdr" or ext == ".exr":
         return _load_env_hdr(fn, scale)
     else:
-        assert False, "Unknown envlight extension %s" % ext
+        assert False, f"Unknown envlight extension {ext}"
+
+def _load_env_exr(fn, scale=1.0):
+    # import OpenEXR, Imath, numpy as np
+    # exr_file = OpenEXR.InputFile(fn)
+    # dw = exr_file.header()['dataWindow']
+    # H = dw.max.y - dw.min.y + 1
+    # W = dw.max.x - dw.min.x + 1
+    # pt = Imath.PixelType(Imath.PixelType.FLOAT)
+    #
+    # def read_channel(c):
+    #     return np.frombuffer(exr_file.channel(c, pt), dtype=np.float32).reshape(H, W)
+    #
+    # R = read_channel('R')
+    # G = read_channel('G')
+    # B = read_channel('B')
+    #
+    # latlong_img = torch.tensor(np.stack([R,G,B], axis=-1), dtype=torch.float32, device='cuda') * scale
+    # cubemap = util.latlong_to_cubemap(latlong_img, [512,512])
+    # l = EnvironmentLight(cubemap)
+    # l.build_mips()
+    # return l
+    import imageio
+    img = imageio.imread(fn).astype(np.float32)
+    img = torch.tensor(img, device='cuda') * scale
+    cubemap = util.latlong_to_cubemap(img, [512, 512])
+    l = EnvironmentLight(cubemap)
+    l.build_mips()
+    return l
 
 def save_env_map(fn, light):
     assert isinstance(light, EnvironmentLight), "Can only save EnvironmentLight currently"

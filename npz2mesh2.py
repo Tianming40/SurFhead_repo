@@ -15,22 +15,77 @@ import Imath
 import pyvista as pv
 import numpy as np
 
-def exr_to_hdr(exr_path, hdr_path):
-    # 打开 EXR 文件
-    exr_file = OpenEXR.InputFile(exr_path)
-    dw = exr_file.header()['dataWindow']
+def read_exr_float_array(path):
+    exr = OpenEXR.InputFile(path)
+    header = exr.header()
+    dw = header['dataWindow']
     H = dw.max.y - dw.min.y + 1
     W = dw.max.x - dw.min.x + 1
 
-    pt = Imath.PixelType(Imath.PixelType.FLOAT)
-    R = np.frombuffer(exr_file.channel('R', pt), dtype=np.float32).reshape(H, W)
-    G = np.frombuffer(exr_file.channel('G', pt), dtype=np.float32).reshape(H, W)
-    B = np.frombuffer(exr_file.channel('B', pt), dtype=np.float32).reshape(H, W)
+    # 自动识别通道
+    channels = header['channels'].keys()
+    R_name = next((c for c in channels if 'R' in c or 'red' in c.lower()), None)
+    G_name = next((c for c in channels if 'G' in c or 'green' in c.lower()), None)
+    B_name = next((c for c in channels if 'B' in c or 'blue' in c.lower()), None)
 
+    pt_R = header['channels'][R_name].type
+    pt_G = header['channels'][G_name].type
+    pt_B = header['channels'][B_name].type
+
+    def read_channel(name, pix_type):
+        raw = exr.channel(name, Imath.PixelType(pix_type.v))
+        arr = np.frombuffer(raw, dtype=np.float16 if pix_type.v == Imath.PixelType.HALF else np.float32)
+        return arr.astype(np.float32).reshape(H, W)
+
+    R = read_channel(R_name, pt_R)
+    G = read_channel(G_name, pt_G)
+    B = read_channel(B_name, pt_B)
+
+    img = np.stack([R, G, B], axis=-1)
+    return img
+
+
+
+
+
+def exr_to_hdr(exr_path, hdr_path):
+
+    exr_file = OpenEXR.InputFile(exr_path)
+    header = exr_file.header()
+    dw = header['dataWindow']
+
+    H = dw.max.y - dw.min.y + 1
+    W = dw.max.x - dw.min.x + 1
+
+
+    def read_channel(name):
+        pt_info = header['channels'][name].type.v
+        pixel_type = Imath.PixelType(pt_info)
+        raw = exr_file.channel(name, pixel_type)
+        # HALF 会自动转换为 float16，再 cast 到 float32
+        arr = np.frombuffer(raw, dtype=np.float16 if pt_info == Imath.PixelType.HALF else np.float32)
+        return arr.astype(np.float32).reshape(H, W)
+
+
+    available = header['channels'].keys()
+    for r, g, b in [('R','G','B'), ('red','green','blue'),
+                    ('Diffuse.R','Diffuse.G','Diffuse.B'),
+                    ('Color.R','Color.G','Color.B')]:
+        if r in available and g in available and b in available:
+            R = read_channel(r)
+            G = read_channel(g)
+            B = read_channel(b)
+            break
+    else:
+        raise ValueError("No RGB channels found in EXR!")
 
     img = np.stack([R, G, B], axis=-1)
 
-    imageio.imwrite(hdr_path, img, format='HDR-FI')
+
+    img = img[:, :, ::-1]
+
+    cv2.imwrite(hdr_path, img)
+
 def flame_to_nvdiffrec_mesh(flame_gaussian_model, timestep=0):
 
     flame_gaussian_model.select_mesh_by_timestep(timestep)
@@ -101,15 +156,17 @@ def nvdiffrecrender(gaussians, camera_info, timestep=0):
 
     mesh_obj.material = simple_material
 
-    exr_to_hdr('/home/tzhang/012_hdrmaps_com_free_2K.exr', '/home/tzhang/012_hdrmaps_com_free_2K.hdr')
 
-    env_light = light.load_env("/home/tzhang/012_hdrmaps_com_free_2K.hdr")
+    env_path = "/home/tzhang/045_hdrmaps_com_free_2K.exr"
+
+
+    env_light = light.load_env(env_path)
 
     mtx_in = camera_info.full_proj_transform.T.unsqueeze(0).cuda().float()
     view_pos = camera_info.camera_center.cuda().float()
     view_pos = view_pos.unsqueeze(0).unsqueeze(0).unsqueeze(0)  # [1,1,1,3]
 
-    env_map = load_env_map("/home/tzhang/012_hdrmaps_com_free_2K.hdr")
+    # env_map = load_env_map(env_path)
 
 
     gbpos = mesh_obj.v_pos
@@ -142,28 +199,41 @@ def nvdiffrecrender(gaussians, camera_info, timestep=0):
     diffuse_color = brdf_pkg['diffuse'].squeeze()  # (N, 3)
     specular_color = brdf_pkg['specular'].squeeze()  # (N, 3)
 
-    # 转换为numpy
+
     colors_np = colors_precomp.detach().cpu().numpy()
     vertices_np = mesh_obj.v_pos.detach().cpu().numpy()
     faces_np = mesh_obj.t_pos_idx.detach().cpu().numpy()
+    diffuse_color_np = diffuse_color.detach().cpu().numpy()
+    specular_color_np = specular_color.detach().cpu().numpy()
 
-    # 创建PyVista网格
     pv_mesh = pv.PolyData(
         vertices_np,
         np.hstack([np.full((len(faces_np), 1), 3), faces_np])
     )
 
-    # 设置顶点颜色
-    pv_mesh['colors'] = colors_np
 
-    # 保存图片
+    pv_mesh['colors'] = colors_np
+    pv_mesh['diffuse'] = diffuse_color_np
+    pv_mesh['specular'] = specular_color_np
+
     plotter = pv.Plotter(off_screen=True)
     plotter.add_mesh(pv_mesh, scalars='colors', rgb=True)
     plotter.screenshot('vertex_colors.png')
     plotter.close()
 
+
     plotter = pv.Plotter(off_screen=True)
-    plotter.add_points(pv_mesh, scalars='colors', rgb=True, point_size=5)  # 只画点
+    plotter.add_mesh(pv_mesh, scalars='diffuse', rgb=True)
+    plotter.screenshot('diffuse_only.png')
+    plotter.close()
+
+    plotter = pv.Plotter(off_screen=True)
+    plotter.add_mesh(pv_mesh, scalars='specular', rgb=True)
+    plotter.screenshot('specular_only.png')
+    plotter.close()
+
+    plotter = pv.Plotter(off_screen=True)
+    plotter.add_points(pv_mesh, scalars='colors', rgb=True, point_size=5)
     plotter.screenshot('vertex_points_only.png')
     plotter.close()
 
@@ -222,7 +292,7 @@ def render_background_from_env(env_latlong, camera_info):
 
     H, W = camera_info.image_height, camera_info.image_width
 
-    # 1. 生成每个像素的视线方向（相机坐标系）
+
     gy, gx = torch.meshgrid(
         torch.linspace(-1, 1, H, device="cuda"),
         torch.linspace(-1, 1, W, device="cuda"),
@@ -240,17 +310,17 @@ def render_background_from_env(env_latlong, camera_info):
     rays_cam = torch.stack((x, y, z), dim=-1)
     rays_cam = rays_cam / torch.norm(rays_cam, dim=-1, keepdim=True)
 
-    # 2. 将射线从相机坐标变换到世界坐标
+
     rays_world = rays_cam @ R.T
     rays_world = rays_world / torch.norm(rays_world, dim=-1, keepdim=True)
 
-    # 3. 将方向转成 latlong 采样坐标
+
     vx, vy, vz = rays_world[..., 0], rays_world[..., 1], rays_world[..., 2]
     tu = torch.atan2(vx, -vz) / (2*np.pi) + 0.5
     tv = torch.acos(torch.clamp(vy, -1, 1)) / np.pi
     texcoords = torch.stack((tu, tv), dim=-1)  # [H, W, 2]
 
-    # 4. 用 dr.texture 采样 HDR 环境贴图
+
     if env_latlong.dim() == 3:
         env_latlong = env_latlong.unsqueeze(0)  # [1,H_env,W_env,3]
 
