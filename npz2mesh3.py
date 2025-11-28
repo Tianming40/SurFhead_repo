@@ -15,76 +15,12 @@ import Imath
 import pyvista as pv
 import numpy as np
 
-def read_exr_float_array(path):
-    exr = OpenEXR.InputFile(path)
-    header = exr.header()
-    dw = header['dataWindow']
-    H = dw.max.y - dw.min.y + 1
-    W = dw.max.x - dw.min.x + 1
-
-    # 自动识别通道
-    channels = header['channels'].keys()
-    R_name = next((c for c in channels if 'R' in c or 'red' in c.lower()), None)
-    G_name = next((c for c in channels if 'G' in c or 'green' in c.lower()), None)
-    B_name = next((c for c in channels if 'B' in c or 'blue' in c.lower()), None)
-
-    pt_R = header['channels'][R_name].type
-    pt_G = header['channels'][G_name].type
-    pt_B = header['channels'][B_name].type
-
-    def read_channel(name, pix_type):
-        raw = exr.channel(name, Imath.PixelType(pix_type.v))
-        arr = np.frombuffer(raw, dtype=np.float16 if pix_type.v == Imath.PixelType.HALF else np.float32)
-        return arr.astype(np.float32).reshape(H, W)
-
-    R = read_channel(R_name, pt_R)
-    G = read_channel(G_name, pt_G)
-    B = read_channel(B_name, pt_B)
-
-    img = np.stack([R, G, B], axis=-1)
-    return img
 
 
 
 
 
-def exr_to_hdr(exr_path, hdr_path):
 
-    exr_file = OpenEXR.InputFile(exr_path)
-    header = exr_file.header()
-    dw = header['dataWindow']
-
-    H = dw.max.y - dw.min.y + 1
-    W = dw.max.x - dw.min.x + 1
-
-
-    def read_channel(name):
-        pt_info = header['channels'][name].type.v
-        pixel_type = Imath.PixelType(pt_info)
-        raw = exr_file.channel(name, pixel_type)
-        # HALF 会自动转换为 float16，再 cast 到 float32
-        arr = np.frombuffer(raw, dtype=np.float16 if pt_info == Imath.PixelType.HALF else np.float32)
-        return arr.astype(np.float32).reshape(H, W)
-
-
-    available = header['channels'].keys()
-    for r, g, b in [('R','G','B'), ('red','green','blue'),
-                    ('Diffuse.R','Diffuse.G','Diffuse.B'),
-                    ('Color.R','Color.G','Color.B')]:
-        if r in available and g in available and b in available:
-            R = read_channel(r)
-            G = read_channel(g)
-            B = read_channel(b)
-            break
-    else:
-        raise ValueError("No RGB channels found in EXR!")
-
-    img = np.stack([R, G, B], axis=-1)
-
-
-    img = img[:, :, ::-1]
-
-    cv2.imwrite(hdr_path, img)
 
 def flame_to_nvdiffrec_mesh(flame_gaussian_model, timestep=0):
 
@@ -115,39 +51,19 @@ def flame_to_nvdiffrec_mesh(flame_gaussian_model, timestep=0):
     mesh = nv_mesh.compute_tangents(mesh)
 
     return mesh
-def load_env_map(path):
-    img = cv2.imread(path, cv2.IMREAD_ANYDEPTH | cv2.IMREAD_COLOR)   # HDR
-    img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-    img = torch.tensor(img, dtype=torch.float32, device='cuda')
-    return img
+
 
 def nvdiffrecrender(gaussians, camera_info, timestep=0):
 
 
     mesh_obj = flame_to_nvdiffrec_mesh(gaussians, timestep=timestep)
-    # mesh_obj = nv_mesh.unit_size(mesh_obj)
 
-    # debug_mesh_info(mesh_obj)
-    # debug_camera_info(camera_info)
-
-    # if mesh_obj.v_pos is not None and mesh_obj.t_pos_idx is not None:
-    #     print(f"✓ Successfully converted to Mesh:")
-    #     print(f"  Vertices: {mesh_obj.v_pos.shape[0]}")
-    #     print(f"  Faces: {mesh_obj.t_pos_idx.shape[0]}")
-    #     print(f"  Has normals: {mesh_obj.v_nrm is not None}")
-    #     print(f"  Has texcoords: {mesh_obj.v_tex is not None}")
-    #     print(f"  Has tangents: {mesh_obj.v_tng is not None}")
-    # else:
-    #     print("✗ Mesh conversion failed!")
-
-
-    # specular_color = torch.tensor([0.3, 0.3, 0.3], device='cuda')
     kd_texture = texture.load_texture2D("/home/tzhang/texture.jpg")
     Highth, Weidth = kd_texture.data.shape[1:3]
     specular_map = torch.zeros(Highth, Weidth, 3, device='cuda')
     specular_map[..., 0] = 0.04  # specular intensity for non-metal
     specular_map[..., 1] = 0.4  # roughness
-    specular_map[..., 2] = 0.0  # metallic
+    specular_map[..., 2] = 0.2  # metallic
     simple_material = material.Material({
         'bsdf': 'pbr',
         'kd': kd_texture,
@@ -166,13 +82,11 @@ def nvdiffrecrender(gaussians, camera_info, timestep=0):
     view_pos = camera_info.camera_center.cuda().float()
     view_pos = view_pos.unsqueeze(0).unsqueeze(0).unsqueeze(0)  # [1,1,1,3]
 
-    # env_map = load_env_map(env_path)
-
 
     gbpos = mesh_obj.v_pos
     normal = mesh_obj.v_nrm
 
-    vertex_uv_indices = torch.full((5143,), -1, dtype=torch.long, device='cuda')
+    vertex_uv_indices = torch.full((mesh_obj.v_pos.shape[0],), -1, dtype=torch.long, device='cuda')
     for face_idx in range(10144):
         for i in range(3):
             vertex_idx = mesh_obj.t_pos_idx[face_idx, i]
@@ -187,13 +101,13 @@ def nvdiffrecrender(gaussians, camera_info, timestep=0):
     kd_colors = kd_texture.sample(uv_coords, derivs).squeeze(0).squeeze(0)
 
 
-    ks_values = torch.tensor([0.04, 0.4, 0.0], device='cuda').repeat(mesh_obj.v_pos.shape[0], 1)
+    ks_values = torch.tensor([0.04, 0.4, 0.2], device='cuda').repeat(mesh_obj.v_pos.shape[0], 1)
     roughness = torch.full((mesh_obj.v_pos.shape[0], 1), 0.4, device='cuda')
 
-    view_pos_flat = view_pos.squeeze()  # [1,1,1,3] -> [3]
-    view_pos_expanded = view_pos_flat.repeat(mesh_obj.v_pos.shape[0], 1)
+    # view_pos_flat = view_pos.squeeze()  # [1,1,1,3] -> [3]
+    # view_pos_expanded = view_pos_flat.repeat(mesh_obj.v_pos.shape[0], 1)
 
-    color, brdf_pkg = env_light.shade2(gbpos[None, None, ...], normal[None, None, ...], kd_colors[None, None, ...], ks_values[None, None, ...],roughness[None, None, ...], view_pos_expanded[None, None, ...])
+    color, brdf_pkg = env_light.shade3(gbpos[None, None, ...], normal[None, None, ...], kd_colors[None, None, ...], ks_values[None, None, ...], view_pos)
 
     colors_precomp = color.squeeze()  # (N, 3)
     diffuse_color = brdf_pkg['diffuse'].squeeze()  # (N, 3)
@@ -235,6 +149,7 @@ def nvdiffrecrender(gaussians, camera_info, timestep=0):
     plotter = pv.Plotter(off_screen=True)
     plotter.add_points(pv_mesh, scalars='colors', rgb=True, point_size=5)
     plotter.screenshot('vertex_points_only.png')
+    plotter.export_html('vertex_points_only.html')
     plotter.close()
 
     return color

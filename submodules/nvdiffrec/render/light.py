@@ -175,6 +175,53 @@ class EnvironmentLight(torch.nn.Module):
 
         return rgb, extras
 
+
+
+    def shade3(self, gb_pos, gb_normal, kd, ks, view_pos, specular=True):
+        wo = util.safe_normalize(view_pos - gb_pos)
+
+        if specular:
+            roughness = ks[..., 1:2] # y component
+            metallic  = ks[..., 2:3] # z component
+            spec_col  = (1.0 - metallic)*0.04 + kd * metallic
+            diff_col  = kd * (1.0 - metallic)
+        else:
+            diff_col = kd
+
+        reflvec = util.safe_normalize(util.reflect(wo, gb_normal))
+        nrmvec = gb_normal
+        if self.mtx is not None: # Rotate lookup
+            mtx = torch.as_tensor(self.mtx, dtype=torch.float32, device='cuda')
+            reflvec = ru.xfm_vectors(reflvec.view(reflvec.shape[0], reflvec.shape[1] * reflvec.shape[2], reflvec.shape[3]), mtx).view(*reflvec.shape)
+            nrmvec  = ru.xfm_vectors(nrmvec.view(nrmvec.shape[0], nrmvec.shape[1] * nrmvec.shape[2], nrmvec.shape[3]), mtx).view(*nrmvec.shape)
+
+        # Diffuse lookup
+        diffuse = dr.texture(self.diffuse[None, ...], nrmvec.contiguous(), filter_mode='linear', boundary_mode='cube')
+        shaded_col = diffuse * diff_col
+        diffuse_result = diffuse * diff_col* (1.0 - ks[..., 0:1])
+        extras = {"diffuse": diffuse_result}
+
+        if specular:
+            # Lookup FG term from lookup texture
+            NdotV = torch.clamp(util.dot(wo, gb_normal), min=1e-4)
+            fg_uv = torch.cat((NdotV, roughness), dim=-1)
+            if not hasattr(self, '_FG_LUT'):
+                nvdiffrec_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+                brdf_path = os.path.join(nvdiffrec_root, 'data', 'irrmaps', 'bsdf_256_256.bin')
+                self._FG_LUT = torch.as_tensor(np.fromfile(brdf_path, dtype=np.float32).reshape(1, 256, 256, 2), dtype=torch.float32, device='cuda')
+            fg_lookup = dr.texture(self._FG_LUT, fg_uv, filter_mode='linear', boundary_mode='clamp')
+
+            # Roughness adjusted specular env lookup
+            miplevel = self.get_mip(roughness)
+            spec = dr.texture(self.specular[0][None, ...], reflvec.contiguous(), mip=list(m[None, ...] for m in self.specular[1:]), mip_level_bias=miplevel[..., 0], filter_mode='linear-mipmap-linear', boundary_mode='cube')
+
+            # Compute aggregate lighting
+            reflectance = spec_col * fg_lookup[...,0:1] + fg_lookup[...,1:2]
+            shaded_col += spec * reflectance
+            specular_result = spec * reflectance
+            extras["specular"] = specular_result* (1.0 - ks[..., 0:1])
+
+        return shaded_col * (1.0 - ks[..., 0:1]), extras # Modulate by hemisphere visibility
 ######################################################################################
 # Load and store
 ######################################################################################

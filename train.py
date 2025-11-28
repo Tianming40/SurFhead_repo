@@ -23,7 +23,7 @@ from scene import Scene, GaussianModel, FlameGaussianModel, SpecularModel
 from utils.general_utils import safe_state, colormap
 import uuid
 from tqdm import tqdm
-from npz2mesh2 import nvdiffrecrender
+from npz2mesh3 import nvdiffrecrender
 
 
 from utils.image_utils import psnr, error_map, visualize_gaussians_with_tensor
