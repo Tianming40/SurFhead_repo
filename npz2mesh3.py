@@ -14,7 +14,7 @@ import OpenEXR
 import Imath
 import pyvista as pv
 import numpy as np
-
+from submodules.nvdiffrec.render import renderutils as ru
 
 
 
@@ -73,7 +73,7 @@ def nvdiffrecrender(gaussians, camera_info, timestep=0):
     mesh_obj.material = simple_material
 
 
-    env_path = "/home/tzhang/045_hdrmaps_com_free_2K.exr"
+    env_path = "/home/tzhang/012_hdrmaps_com_free_2K.exr"
 
 
     env_light = light.load_env(env_path)
@@ -120,6 +120,10 @@ def nvdiffrecrender(gaussians, camera_info, timestep=0):
     diffuse_color_np = diffuse_color.detach().cpu().numpy()
     specular_color_np = specular_color.detach().cpu().numpy()
 
+    # env_map = load_env_map_exr(env_path, device='cuda', scale=1.0)
+    # background = render_background_from_env(env_map, camera_info)
+    # vertices_flipped = vertices_np.copy()
+    # vertices_flipped[:, 0] *= -1
     pv_mesh = pv.PolyData(
         vertices_np,
         np.hstack([np.full((len(faces_np), 1), 3), faces_np])
@@ -130,34 +134,107 @@ def nvdiffrecrender(gaussians, camera_info, timestep=0):
     pv_mesh['diffuse'] = diffuse_color_np
     pv_mesh['specular'] = specular_color_np
 
-    plotter = pv.Plotter(off_screen=True)
+
+    camera_pos = view_pos.squeeze().detach().cpu().numpy()
+    plotter = pv.Plotter(off_screen=True, window_size=(camera_info.image_width,camera_info.image_height))
     plotter.add_mesh(pv_mesh, scalars='colors', rgb=True)
-    plotter.screenshot('vertex_colors.png')
+
+
+
+    R = camera_info.R
+    t = camera_info.T
+    Rt = np.zeros((4, 4))
+    Rt[:3, :3] = R.transpose()
+    Rt[:3, 3] = t
+    Rt[3, 3] = 1.0
+
+    C2W = np.linalg.inv(Rt)
+
+      # 相机的上方向 Y 轴
+
+    C2W[:3, 1] *= -1
+    # arrow = pv.Arrow(start=camera_pos, direction=forward_vec, scale=0.005)
+    # plotter.add_mesh(arrow, color='red')
+    forward_vec = C2W[:3, 2]  # Z 方向
+
+
+    focal_point = camera_pos + forward_vec
+    up_vector = C2W[:3, 1]
+
+    plotter.add_axes()
+
+    plotter.camera_position = [camera_pos, focal_point, up_vector]
+    plotter.camera.view_angle = np.degrees(camera_info.FoVy)
+
+    plotter.screenshot('rendered_debug.png')
+    plotter.export_html('vertex_colors_only.html')
     plotter.close()
 
 
-    plotter = pv.Plotter(off_screen=True)
-    plotter.add_mesh(pv_mesh, scalars='diffuse', rgb=True)
-    plotter.screenshot('diffuse_only.png')
-    plotter.close()
+    # plotter = pv.Plotter(off_screen=True)
+    # plotter.add_mesh(pv_mesh, scalars='diffuse', rgb=True)
+    # plotter.screenshot('diffuse_only.png')
+    # plotter.close()
+    #
+    # plotter = pv.Plotter(off_screen=True)
+    # plotter.add_mesh(pv_mesh, scalars='specular', rgb=True)
+    # plotter.screenshot('specular_only.png')
+    # plotter.close()
+    #
+    # plotter = pv.Plotter(off_screen=True)
+    # plotter.add_points(pv_mesh, scalars='colors', rgb=True, point_size=5)
+    # plotter.screenshot('vertex_points_only.png')
+    # plotter.export_html('vertex_points_only.html')
+    # plotter.close()
 
-    plotter = pv.Plotter(off_screen=True)
-    plotter.add_mesh(pv_mesh, scalars='specular', rgb=True)
-    plotter.screenshot('specular_only.png')
-    plotter.close()
 
-    plotter = pv.Plotter(off_screen=True)
-    plotter.add_points(pv_mesh, scalars='colors', rgb=True, point_size=5)
-    plotter.screenshot('vertex_points_only.png')
-    plotter.export_html('vertex_points_only.html')
-    plotter.close()
 
+    img = render_points_as_image(mesh_obj.v_pos, colors_precomp, mtx_in, camera_info.image_height, camera_info.image_width)
+
+    img_np = (img.clamp(0, 1).detach().cpu().numpy() * 255).astype('uint8')
+    imageio.imwrite("pointrender.png", img_np)
     return color
 
 
 
 
+def render_points_as_image(vertices, colors, mtx_in, H, W):
 
+    device = vertices.device
+
+    # 1. Homogeneous coords
+    verts_clip = ru.xfm_points(vertices[None, ...], mtx_in)  # [1, N, 4]
+
+    # -----------------------------
+    # 2. Perspective divide → NDC
+    # -----------------------------
+    ndc = verts_clip[0, :, :3] / verts_clip[0, :, 3:4]  # [N,3]       # [N,3], x,y,z ∈ [-1,1]
+
+    # 4. NDC → screen pixels
+    x_img = (((ndc[:,0] + 1) * 0.5)) * W
+    y_img = (( (ndc[:,1] + 1) * 0.5)) * H
+
+    px = x_img.long().clamp(0, W-1)
+    py = y_img.long().clamp(0, H-1)
+
+
+    img = torch.ones(H, W, 3, device=device)
+
+    # 6. Draw points (no depth test)
+    img[py, px] = colors
+
+    return img
+
+
+
+
+
+def load_env_map_exr(path, device='cuda', scale=1.0):
+
+
+    img = imageio.imread(path).astype(np.float32)
+    img = torch.tensor(img, device=device)
+    return img
 
 
 def render_background_from_env(env_latlong, camera_info):
