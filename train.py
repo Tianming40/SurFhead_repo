@@ -83,7 +83,7 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
         # print(f"{i}: timestep{timestep}, camera{camera_id}")
 
 
-        nvdiffrecrender(scene.gaussians, camera, timestep)
+        nvdiffrecrender(scene.gaussians, camera, timestep, total_frame_num=120)
 
 
         if i > 100:

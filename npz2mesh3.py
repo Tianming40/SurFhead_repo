@@ -53,7 +53,7 @@ def flame_to_nvdiffrec_mesh(flame_gaussian_model, timestep=0):
     return mesh
 
 
-def nvdiffrecrender(gaussians, camera_info, timestep=0):
+def nvdiffrecrender(gaussians, camera_info, timestep, total_frame_num):
 
 
     mesh_obj = flame_to_nvdiffrec_mesh(gaussians, timestep=timestep)
@@ -77,6 +77,8 @@ def nvdiffrecrender(gaussians, camera_info, timestep=0):
 
 
     env_light = light.load_env(env_path)
+
+
 
     mtx_in = camera_info.full_proj_transform.T.unsqueeze(0).cuda().float()
     view_pos = camera_info.camera_center.cuda().float()
@@ -106,81 +108,185 @@ def nvdiffrecrender(gaussians, camera_info, timestep=0):
 
     # view_pos_flat = view_pos.squeeze()  # [1,1,1,3] -> [3]
     # view_pos_expanded = view_pos_flat.repeat(mesh_obj.v_pos.shape[0], 1)
+    os.makedirs('video_material', exist_ok=True)
+    save_root = 'video_material'
+    picture_name = camera_info.image_name
+    save_dir = os.path.join(save_root, picture_name)
+    os.makedirs(save_dir, exist_ok=True)
 
-    color, brdf_pkg = env_light.shade3(gbpos[None, None, ...], normal[None, None, ...], kd_colors[None, None, ...], ks_values[None, None, ...], view_pos)
+    print(f"Saved for data{picture_name}image to: {save_dir}")
+    total_dir = os.path.join(save_dir, 'total')
+    diffuse_dir = os.path.join(save_dir, 'diffuse')
+    specular_dir = os.path.join(save_dir, 'specular')
+    point_dir = os.path.join(save_dir, 'point')
 
-    colors_precomp = color.squeeze()  # (N, 3)
-    diffuse_color = brdf_pkg['diffuse'].squeeze()  # (N, 3)
-    specular_color = brdf_pkg['specular'].squeeze()  # (N, 3)
+    for d in [total_dir, diffuse_dir, specular_dir, point_dir]:
+        os.makedirs(d, exist_ok=True)
+    for frame_idx in range(total_frame_num):
 
+        theta = -2 * np.pi * frame_idx / total_frame_num
+        rotation_matrix = torch.tensor([
+            [np.cos(theta), 0, np.sin(theta), 0],
+            [0, 1, 0, 0],
+            [-np.sin(theta), 0, np.cos(theta), 0],
+            [0, 0, 0, 1]
+        ], device='cuda', dtype=torch.float32).unsqueeze(0)
+        env_light.xfm(rotation_matrix)
+        env_map = load_env_map_exr(env_path, device='cuda', scale=1.0)
+        background = render_background_from_env(env_map, camera_info, rotation_matrix=rotation_matrix)
+        background_np = background.squeeze(0).cpu().numpy()
 
-    colors_np = colors_precomp.detach().cpu().numpy()
-    vertices_np = mesh_obj.v_pos.detach().cpu().numpy()
-    faces_np = mesh_obj.t_pos_idx.detach().cpu().numpy()
-    diffuse_color_np = diffuse_color.detach().cpu().numpy()
-    specular_color_np = specular_color.detach().cpu().numpy()
+        color, brdf_pkg = env_light.shade3(gbpos[None, None, ...], normal[None, None, ...], kd_colors[None, None, ...], ks_values[None, None, ...], view_pos)
 
-    # env_map = load_env_map_exr(env_path, device='cuda', scale=1.0)
-    # background = render_background_from_env(env_map, camera_info)
-    # vertices_flipped = vertices_np.copy()
-    # vertices_flipped[:, 0] *= -1
-    pv_mesh = pv.PolyData(
-        vertices_np,
-        np.hstack([np.full((len(faces_np), 1), 3), faces_np])
-    )
-
-
-    pv_mesh['colors'] = colors_np
-    pv_mesh['diffuse'] = diffuse_color_np
-    pv_mesh['specular'] = specular_color_np
-
-
-    camera_pos = view_pos.squeeze().detach().cpu().numpy()
-    plotter = pv.Plotter(off_screen=True, window_size=(camera_info.image_width,camera_info.image_height))
-    plotter.add_mesh(pv_mesh, scalars='colors', rgb=True)
-
-
-
-    R = camera_info.R
-    t = camera_info.T
-    Rt = np.zeros((4, 4))
-    Rt[:3, :3] = R.transpose()
-    Rt[:3, 3] = t
-    Rt[3, 3] = 1.0
-
-    C2W = np.linalg.inv(Rt)
-
-      # 相机的上方向 Y 轴
-
-    C2W[:3, 1] *= -1
-    # arrow = pv.Arrow(start=camera_pos, direction=forward_vec, scale=0.005)
-    # plotter.add_mesh(arrow, color='red')
-    forward_vec = C2W[:3, 2]  # Z 方向
+        colors_precomp = color.squeeze()  # (N, 3)
+        diffuse_color = brdf_pkg['diffuse'].squeeze()  # (N, 3)
+        specular_color = brdf_pkg['specular'].squeeze()  # (N, 3)
 
 
-    focal_point = camera_pos + forward_vec
-    up_vector = C2W[:3, 1]
+        colors_np = colors_precomp.detach().cpu().numpy()
+        vertices_np = mesh_obj.v_pos.detach().cpu().numpy()
+        faces_np = mesh_obj.t_pos_idx.detach().cpu().numpy()
+        diffuse_color_np = diffuse_color.detach().cpu().numpy()
+        specular_color_np = specular_color.detach().cpu().numpy()
 
-    plotter.add_axes()
+        # env_map = load_env_map_exr(env_path, device='cuda', scale=1.0)
+        # background = render_background_from_env(env_map, camera_info)
+        # vertices_flipped = vertices_np.copy()
+        # vertices_flipped[:, 0] *= -1
+        pv_mesh = pv.PolyData(
+            vertices_np,
+            np.hstack([np.full((len(faces_np), 1), 3), faces_np])
+        )
 
-    plotter.camera_position = [camera_pos, focal_point, up_vector]
-    plotter.camera.view_angle = np.degrees(camera_info.FoVy)
 
-    plotter.screenshot('rendered_debug.png')
-    plotter.export_html('vertex_colors_only.html')
-    plotter.close()
+        pv_mesh['colors'] = colors_np
+        pv_mesh['diffuse'] = diffuse_color_np
+        pv_mesh['specular'] = specular_color_np
 
 
-    # plotter = pv.Plotter(off_screen=True)
-    # plotter.add_mesh(pv_mesh, scalars='diffuse', rgb=True)
-    # plotter.screenshot('diffuse_only.png')
-    # plotter.close()
-    #
-    # plotter = pv.Plotter(off_screen=True)
-    # plotter.add_mesh(pv_mesh, scalars='specular', rgb=True)
-    # plotter.screenshot('specular_only.png')
-    # plotter.close()
-    #
+        camera_pos = view_pos.squeeze().detach().cpu().numpy()
+
+
+        R = camera_info.R
+        t = camera_info.T
+        Rt = np.zeros((4, 4))
+        Rt[:3, :3] = R.transpose()
+        Rt[:3, 3] = t
+        Rt[3, 3] = 1.0
+
+        C2W = np.linalg.inv(Rt)
+
+
+        C2W[:3, 1] *= -1
+        # arrow = pv.Arrow(start=camera_pos, direction=forward_vec, scale=0.005)
+        # plotter.add_mesh(arrow, color='red')
+        forward_vec = C2W[:3, 2]  # Z 方向
+
+
+        focal_point = camera_pos + forward_vec
+        up_vector = C2W[:3, 1]
+
+
+
+
+
+
+
+
+        ##########################################
+        # render total
+        ##########################################
+
+        plotter = pv.Plotter(off_screen=True, window_size=(camera_info.image_width, camera_info.image_height))
+        plotter.add_mesh(pv_mesh, scalars='colors', rgb=True)
+        plotter.add_axes()
+
+        plotter.camera_position = [camera_pos, focal_point, up_vector]
+        plotter.camera.view_angle = np.degrees(camera_info.FoVy)
+        plotter.add_text("total", font_size=16, color="black")
+        pic_path = os.path.join(total_dir, f"{picture_name}_{frame_idx}_total.png")
+        plotter.screenshot(pic_path)
+        html_path = os.path.join(total_dir, f"{picture_name}_{frame_idx}_total.html")
+        plotter.export_html(html_path)
+        plotter.close()
+
+        back_pic_path = os.path.join(total_dir, f"{picture_name}_{frame_idx}_total_background.png")
+        img_mesh = imageio.imread(pic_path)
+
+        img_mesh_float = img_mesh / 255.0  # [0,1]
+
+
+        mask = (np.any(img_mesh_float < 0.99, axis=-1, keepdims=True)).astype(np.float32)
+
+
+        composite = img_mesh_float * mask + background_np * (1 - mask)
+
+        composite_uint8 = (np.clip(composite, 0, 1) * 255).astype(np.uint8)
+        imageio.imwrite(back_pic_path, composite_uint8)
+        ##########################################
+        # render diffuse
+        ##########################################
+
+        plotter = pv.Plotter(off_screen=True,window_size=(camera_info.image_width,camera_info.image_height))
+
+        plotter.add_mesh(pv_mesh, scalars='diffuse', rgb=True)
+
+        plotter.camera_position = [camera_pos, focal_point, up_vector]
+        plotter.camera.view_angle = np.degrees(camera_info.FoVy)
+        plotter.add_text("diffuse_only", font_size=16, color="black")
+
+        pic_path = os.path.join(diffuse_dir, f"{picture_name}_{frame_idx}_diffuse.png")
+        plotter.screenshot(pic_path)
+        html_path = os.path.join(diffuse_dir, f"{picture_name}_{frame_idx}_diffuse.html")
+        plotter.export_html(html_path)
+        plotter.close()
+
+
+
+        back_pic_path = os.path.join(diffuse_dir, f"{picture_name}_{frame_idx}_diffuse_background.png")
+        img_mesh = imageio.imread(pic_path)
+
+        img_mesh_float = img_mesh / 255.0  # [0,1]
+
+        mask = (np.any(img_mesh_float < 0.99, axis=-1, keepdims=True)).astype(np.float32)
+
+        composite = img_mesh_float * mask + background_np * (1 - mask)
+
+        composite_uint8 = (np.clip(composite, 0, 1) * 255).astype(np.uint8)
+        imageio.imwrite(back_pic_path, composite_uint8)
+        ##########################################
+        # render specular
+        ##########################################
+
+        plotter = pv.Plotter(off_screen=True, window_size=(camera_info.image_width,camera_info.image_height))
+
+        plotter.add_mesh(pv_mesh, scalars='specular', rgb=True)
+
+
+        focal_point = camera_pos + forward_vec
+        plotter.camera_position = [camera_pos, focal_point, up_vector]
+        plotter.camera.view_angle = np.degrees(camera_info.FoVy)
+        plotter.add_text("specular_only", font_size=16, color="black")
+        pic_path = os.path.join(specular_dir, f"{picture_name}_{frame_idx}_specular.png")
+        plotter.screenshot(pic_path)
+        html_path = os.path.join(specular_dir, f"{picture_name}_{frame_idx}_specular.html")
+        plotter.export_html(html_path)
+        plotter.close()
+
+        back_pic_path = os.path.join(specular_dir, f"{picture_name}_{frame_idx}_specular_background.png")
+        img_mesh = imageio.imread(pic_path)
+
+        img_mesh_float = img_mesh / 255.0  # [0,1]
+
+        mask = (np.any(img_mesh_float < 0.99, axis=-1, keepdims=True)).astype(np.float32)
+
+        composite = img_mesh_float * mask + background_np * (1 - mask)
+
+        composite_uint8 = (np.clip(composite, 0, 1) * 255).astype(np.uint8)
+        imageio.imwrite(back_pic_path, composite_uint8)
+
+
+
     # plotter = pv.Plotter(off_screen=True)
     # plotter.add_points(pv_mesh, scalars='colors', rgb=True, point_size=5)
     # plotter.screenshot('vertex_points_only.png')
@@ -189,10 +295,41 @@ def nvdiffrecrender(gaussians, camera_info, timestep=0):
 
 
 
-    img = render_points_as_image(mesh_obj.v_pos, colors_precomp, mtx_in, camera_info.image_height, camera_info.image_width)
+        # img = render_points_as_image(mesh_obj.v_pos, colors_precomp, mtx_in, camera_info.image_height, camera_info.image_width)
+        #
+        # img_np = (img.clamp(0, 1).detach().cpu().numpy() * 255).astype('uint8')
+        # pic_path = os.path.join(point_dir, f"{picture_name}_{frame_idx}_pointrender.png")
+        #
+        # imageio.imwrite(pic_path, img_np)
 
-    img_np = (img.clamp(0, 1).detach().cpu().numpy() * 255).astype('uint8')
-    imageio.imwrite("pointrender.png", img_np)
+
+    subfolders = ['total', 'diffuse', 'specular']
+
+    for sub in subfolders:
+        folder_path = os.path.join(save_root, picture_name, sub)
+        if not os.path.exists(folder_path):
+            continue
+
+
+        image_files = sorted([f for f in os.listdir(folder_path) if f.endswith('.png') and  "_background" not in f],
+                             key=lambda x: int(x.split('_')[2]))  #  pictureName_frameIdx_XXX.png
+
+        images = [imageio.imread(os.path.join(folder_path, f)) for f in image_files]
+
+
+        video_path = os.path.join(save_root, picture_name, f"{sub}.mp4")
+        imageio.mimsave(video_path, images, fps=8, quality=8)
+        print(f"Saved video: {video_path}")
+
+        background_image_files = sorted(
+            [f for f in os.listdir(folder_path) if f.endswith('.png') and "_background" in f],
+            key=lambda x: int(x.split('_')[2])
+        )
+
+        background_images = [imageio.imread(os.path.join(folder_path, f)) for f in background_image_files]
+        background_video_path = os.path.join(save_root, picture_name, f"{sub}_background.mp4")
+        imageio.mimsave(background_video_path, background_images, fps=8, quality=8)
+        print(f"Saved video: {background_video_path}")
     return color
 
 
@@ -237,11 +374,11 @@ def load_env_map_exr(path, device='cuda', scale=1.0):
     return img
 
 
-def render_background_from_env(env_latlong, camera_info):
+def render_background_from_env(env_latlong, camera_info, rotation_matrix=None):
     """
 
         env_latlong: [H_env, W_env, 3], float32, CUDA, latlong HDR
-        camera_info: 含 full_proj_transform, FoVx, FoVy, image_width, image_height, R, T
+        camera_info:  full_proj_transform, FoVx, FoVy, image_width, image_height, R, T
 
         background: [1, H, W, 3], float32, CUDA
     """
@@ -281,6 +418,18 @@ def render_background_from_env(env_latlong, camera_info):
     rays_world = rays_cam @ R.T
     rays_world = rays_world / torch.norm(rays_world, dim=-1, keepdim=True)
 
+    if rotation_matrix is not None:
+        rot = rotation_matrix
+        if isinstance(rot, torch.Tensor):
+            rot = rot.to("cuda", dtype=torch.float32)
+        if rot.ndim == 3 and rot.shape[0] == 1 and rot.shape[1] == 4 and rot.shape[2] == 4:
+            rot = rot[0]  # [4,4]
+        if rot.shape == (4, 4):
+            rot = rot[:3, :3]  # take upper-left 3x3
+        elif rot.shape != (3, 3):
+            raise ValueError(f"rotation_matrix must be 3x3 or 4x4, got {rot.shape}")
+        rays_world = rays_world @ rot.inverse()
+        rays_world = rays_world / torch.norm(rays_world, dim=-1, keepdim=True)
 
     vx, vy, vz = rays_world[..., 0], rays_world[..., 1], rays_world[..., 2]
     tu = torch.atan2(vx, -vz) / (2*np.pi) + 0.5
