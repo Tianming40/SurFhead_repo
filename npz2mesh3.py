@@ -51,10 +51,38 @@ def flame_to_nvdiffrec_mesh(flame_gaussian_model, timestep=0):
     mesh = nv_mesh.compute_tangents(mesh)
 
     return mesh
+def test_camer(camera_info,cam_pos=np.array([0.0, 0.0, 0.5], dtype=np.float32), target=np.array([0.0, 0.0, 0.0], dtype=np.float32), fovy_deg=60.0):
+
+    forward = target - cam_pos
+    forward = forward / np.linalg.norm(forward)
 
 
-def nvdiffrecrender(gaussians, camera_info, timestep, total_frame_num):
+    world_up = np.array([0, -1, 0], dtype=np.float32)
 
+    right = np.cross(world_up, forward)
+    right = right / np.linalg.norm(right)
+
+    up = np.cross(forward, right)
+
+
+    R_world2cam = np.vstack([right, up, forward]).T  # world-to-camera rotation
+    T_world2cam = -R_world2cam @ cam_pos  # w2c[:3,3]
+
+
+    camera_info.R[:] = R_world2cam.astype(np.float32)
+    camera_info.T[:] = T_world2cam.astype(np.float32)
+
+
+    camera_info.camera_center[:] = torch.tensor(cam_pos, dtype=torch.float32, device=camera_info.camera_center.device)
+
+
+    camera_info.FoVy = np.radians(fovy_deg)
+    return
+
+def nvdiffrecrender(gaussians, camera_info, timestep, total_frame_num, use_test_camera=True):
+
+    if use_test_camera:
+        test_camer(camera_info)
 
     mesh_obj = flame_to_nvdiffrec_mesh(gaussians, timestep=timestep)
 
@@ -80,7 +108,7 @@ def nvdiffrecrender(gaussians, camera_info, timestep, total_frame_num):
 
 
 
-    mtx_in = camera_info.full_proj_transform.T.unsqueeze(0).cuda().float()
+    # mtx_in = camera_info.full_proj_transform.T.unsqueeze(0).cuda().float()
     view_pos = camera_info.camera_center.cuda().float()
     view_pos = view_pos.unsqueeze(0).unsqueeze(0).unsqueeze(0)  # [1,1,1,3]
 
@@ -172,7 +200,7 @@ def nvdiffrecrender(gaussians, camera_info, timestep, total_frame_num):
         C2W = np.linalg.inv(Rt)
         C2W[:3, 1] *= -1
 
-        forward_vec = C2W[:3, 2]  # Z 方向
+        forward_vec = C2W[:3, 2]
         focal_point = camera_pos + forward_vec
         up_vector = C2W[:3, 1]
 
@@ -192,8 +220,8 @@ def nvdiffrecrender(gaussians, camera_info, timestep, total_frame_num):
         plotter.add_axes()
 
         plotter.camera_position = [camera_pos, focal_point, up_vector]
-        # plotter.camera.view_angle = np.degrees(camera_info.FoVy)
-        plotter.camera.view_angle = np.degrees(1.0)
+        plotter.camera.view_angle = np.degrees(camera_info.FoVy)
+        # plotter.camera.view_angle = np.degrees(1.0)
         plotter.add_text("total", font_size=16, color="black")
         pic_path = os.path.join(total_dir, f"{picture_name}_{frame_idx}_total.png")
         plotter.screenshot(pic_path)
@@ -223,8 +251,8 @@ def nvdiffrecrender(gaussians, camera_info, timestep, total_frame_num):
         plotter.add_mesh(pv_mesh, scalars='diffuse', rgb=True)
 
         plotter.camera_position = [camera_pos, focal_point, up_vector]
-        # plotter.camera.view_angle = np.degrees(camera_info.FoVy)
-        plotter.camera.view_angle = np.degrees(1.0)
+        plotter.camera.view_angle = np.degrees(camera_info.FoVy)
+        # plotter.camera.view_angle = np.degrees(1.0)
         plotter.add_text("diffuse_only", font_size=16, color="black")
 
         pic_path = os.path.join(diffuse_dir, f"{picture_name}_{frame_idx}_diffuse.png")
@@ -257,8 +285,8 @@ def nvdiffrecrender(gaussians, camera_info, timestep, total_frame_num):
 
         focal_point = camera_pos + forward_vec
         plotter.camera_position = [camera_pos, focal_point, up_vector]
-        # plotter.camera.view_angle = np.degrees(camera_info.FoVy)
-        plotter.camera.view_angle = np.degrees(1.0)
+        plotter.camera.view_angle = np.degrees(camera_info.FoVy)
+        # plotter.camera.view_angle = np.degrees(1.0)
         plotter.add_text("specular_only", font_size=16, color="black")
         pic_path = os.path.join(specular_dir, f"{picture_name}_{frame_idx}_specular.png")
         plotter.screenshot(pic_path)
@@ -395,11 +423,12 @@ def render_background_from_env(env_latlong, camera_info, rotation_matrix=None):
         torch.linspace(-1, 1, W, device="cuda"),
         indexing='ij'
     )
-
+    aspect = W / H
     # tan_fovx = math.tan(camera_info.FoVx * 0.5)
-    # tan_fovy = math.tan(camera_info.FoVy * 0.5)
-    tan_fovx = math.tan(1.0 * 0.5)
-    tan_fovy = math.tan(1.0 * H/W * 0.5)
+    tan_fovy = math.tan(camera_info.FoVy * 0.5)
+    tan_fovx = tan_fovy * aspect
+    # tan_fovx = math.tan(1.0 * 0.5)
+    # tan_fovy = math.tan(1.0 * H/W * 0.5)
 
     # build rays in camera space (now +Z is forward)
     x = gx * tan_fovx
