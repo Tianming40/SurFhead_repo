@@ -216,10 +216,14 @@ class EnvironmentLight(torch.nn.Module):
             spec = dr.texture(self.specular[0][None, ...], reflvec.contiguous(), mip=list(m[None, ...] for m in self.specular[1:]), mip_level_bias=miplevel[..., 0], filter_mode='linear-mipmap-linear', boundary_mode='cube')
 
             # Compute aggregate lighting
-            reflectance = spec_col * fg_lookup[...,0:1] + fg_lookup[...,1:2]
-            shaded_col += spec * reflectance
+            reflectance = spec_col * fg_lookup[..., 0:1] + fg_lookup[..., 1:2]
             specular_result = spec * reflectance
-            extras["specular"] = specular_result* (1.0 - ks[..., 0:1])
+            specular_result = torch.clamp(specular_result, 0.0, 1.0)  # Clip to avoid purple/green spots
+            extras["specular"] = specular_result * (1.0 - ks[..., 0:1])
+
+            # Add to shaded_col and clip overall
+            shaded_col += specular_result
+            shaded_col = torch.clamp(shaded_col, 0.0, 1.0)
 
         return shaded_col * (1.0 - ks[..., 0:1]), extras # Modulate by hemisphere visibility
 ######################################################################################

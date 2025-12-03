@@ -62,7 +62,7 @@ def nvdiffrecrender(gaussians, camera_info, timestep, total_frame_num):
     Highth, Weidth = kd_texture.data.shape[1:3]
     specular_map = torch.zeros(Highth, Weidth, 3, device='cuda')
     specular_map[..., 0] = 0.04  # specular intensity for non-metal
-    specular_map[..., 1] = 0.4  # roughness
+    specular_map[..., 1] = 0.2  # roughness
     specular_map[..., 2] = 0.2  # metallic
     simple_material = material.Material({
         'bsdf': 'pbr',
@@ -101,13 +101,8 @@ def nvdiffrecrender(gaussians, camera_info, timestep, total_frame_num):
     uv_coords = correct_uvs.unsqueeze(0).unsqueeze(0)  # [1, 1, 5143, 2]
     derivs = torch.zeros(1, 1, 5143, 4, device='cuda')
     kd_colors = kd_texture.sample(uv_coords, derivs).squeeze(0).squeeze(0)
-
-
     ks_values = torch.tensor([0.04, 0.4, 0.2], device='cuda').repeat(mesh_obj.v_pos.shape[0], 1)
-    roughness = torch.full((mesh_obj.v_pos.shape[0], 1), 0.4, device='cuda')
 
-    # view_pos_flat = view_pos.squeeze()  # [1,1,1,3] -> [3]
-    # view_pos_expanded = view_pos_flat.repeat(mesh_obj.v_pos.shape[0], 1)
     os.makedirs('video_material', exist_ok=True)
     save_root = 'video_material'
     picture_name = camera_info.image_name
@@ -175,14 +170,9 @@ def nvdiffrecrender(gaussians, camera_info, timestep, total_frame_num):
         Rt[3, 3] = 1.0
 
         C2W = np.linalg.inv(Rt)
-
-
         C2W[:3, 1] *= -1
-        # arrow = pv.Arrow(start=camera_pos, direction=forward_vec, scale=0.005)
-        # plotter.add_mesh(arrow, color='red')
+
         forward_vec = C2W[:3, 2]  # Z 方向
-
-
         focal_point = camera_pos + forward_vec
         up_vector = C2W[:3, 1]
 
@@ -405,8 +395,8 @@ def render_background_from_env(env_latlong, camera_info, rotation_matrix=None):
 
     # tan_fovx = math.tan(camera_info.FoVx * 0.5)
     # tan_fovy = math.tan(camera_info.FoVy * 0.5)
-    tan_fovx = math.tan(1.5 * 0.5)
-    tan_fovy = math.tan(1.5 * H/W * 0.5)
+    tan_fovx = math.tan(1.0 * 0.5)
+    tan_fovy = math.tan(1.0 * H/W * 0.5)
     x = gx * tan_fovx
     y = gy * tan_fovy
     z = -torch.ones_like(x)
@@ -418,19 +408,36 @@ def render_background_from_env(env_latlong, camera_info, rotation_matrix=None):
     rays_world = rays_cam @ R.T
     rays_world = rays_world / torch.norm(rays_world, dim=-1, keepdim=True)
 
+    # if rotation_matrix is not None:
+    #     rot = rotation_matrix
+    #     if isinstance(rot, torch.Tensor):
+    #         rot = rot.to("cuda", dtype=torch.float32)
+    #     if rot.ndim == 3 and rot.shape[0] == 1 and rot.shape[1] == 4 and rot.shape[2] == 4:
+    #         rot = rot[0]  # [4,4]
+    #     if rot.shape == (4, 4):
+    #         rot = rot[:3, :3]  # take upper-left 3x3
+    #     elif rot.shape != (3, 3):
+    #         raise ValueError(f"rotation_matrix must be 3x3 or 4x4, got {rot.shape}")
+    #     rays_world = rays_world @ rot.T
+    #     rays_world = rays_world / torch.norm(rays_world, dim=-1, keepdim=True)
     if rotation_matrix is not None:
         rot = rotation_matrix
         if isinstance(rot, torch.Tensor):
             rot = rot.to("cuda", dtype=torch.float32)
-        if rot.ndim == 3 and rot.shape[0] == 1 and rot.shape[1] == 4 and rot.shape[2] == 4:
-            rot = rot[0]  # [4,4]
-        if rot.shape == (4, 4):
-            rot = rot[:3, :3]  # take upper-left 3x3
-        elif rot.shape != (3, 3):
-            raise ValueError(f"rotation_matrix must be 3x3 or 4x4, got {rot.shape}")
-        rays_world = rays_world @ rot.inverse()
-        rays_world = rays_world / torch.norm(rays_world, dim=-1, keepdim=True)
+        if rot.ndim == 3:
+            rot = rot[0]
+        rot3 = rot[:3, :3]
 
+        # Same direction transform as reflect lookup in shade3()
+        initial_rot = torch.tensor([
+            [0, 0, 1],
+            [0, 1, 0],
+            [-1, 0, 0]
+        ], device='cuda', dtype=torch.float32)
+
+        full_rot = initial_rot @ rot3.T
+        rays_world = torch.einsum('hwc,dc->hwd', rays_world, full_rot)
+        rays_world = rays_world / torch.norm(rays_world, dim=-1, keepdim=True)
     vx, vy, vz = rays_world[..., 0], rays_world[..., 1], rays_world[..., 2]
     tu = torch.atan2(vx, -vz) / (2*np.pi) + 0.5
     tv = torch.acos(torch.clamp(vy, -1, 1)) / np.pi
