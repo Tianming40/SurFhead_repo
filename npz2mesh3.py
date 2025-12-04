@@ -51,7 +51,7 @@ def flame_to_nvdiffrec_mesh(flame_gaussian_model, timestep=0):
     mesh = nv_mesh.compute_tangents(mesh)
 
     return mesh
-def test_camer(camera_info,cam_pos=np.array([0.0, 0.0, 0.5], dtype=np.float32), target=np.array([0.0, 0.0, 0.0], dtype=np.float32), fovy_deg=60.0):
+def test_camer(camera_info,cam_pos=np.array([0.3, 0.3, 0.5], dtype=np.float32), target=np.array([0.0, 0.0, 0.0], dtype=np.float32), fovy_deg=60.0):
 
     forward = target - cam_pos
     forward = forward / np.linalg.norm(forward)
@@ -79,7 +79,7 @@ def test_camer(camera_info,cam_pos=np.array([0.0, 0.0, 0.5], dtype=np.float32), 
     camera_info.FoVy = np.radians(fovy_deg)
     return
 
-def nvdiffrecrender(gaussians, camera_info, timestep, total_frame_num, use_test_camera=True):
+def nvdiffrecrender(gaussians, camera_info, timestep, total_frame_num, use_test_camera=False):
 
     if use_test_camera:
         test_camer(camera_info)
@@ -133,6 +133,9 @@ def nvdiffrecrender(gaussians, camera_info, timestep, total_frame_num, use_test_
 
     os.makedirs('video_material', exist_ok=True)
     save_root = 'video_material'
+    if use_test_camera:
+        os.makedirs('test_camera', exist_ok=True)
+        save_root = 'test_camera'
     picture_name = camera_info.image_name
     save_dir = os.path.join(save_root, picture_name)
     os.makedirs(save_dir, exist_ok=True)
@@ -142,6 +145,7 @@ def nvdiffrecrender(gaussians, camera_info, timestep, total_frame_num, use_test_
     diffuse_dir = os.path.join(save_dir, 'diffuse')
     specular_dir = os.path.join(save_dir, 'specular')
     point_dir = os.path.join(save_dir, 'point')
+
 
     for d in [total_dir, diffuse_dir, specular_dir, point_dir]:
         os.makedirs(d, exist_ok=True)
@@ -206,7 +210,7 @@ def nvdiffrecrender(gaussians, camera_info, timestep, total_frame_num, use_test_
 
 
 
-
+        # C2W same as josn but -z
 
 
 
@@ -425,10 +429,10 @@ def render_background_from_env(env_latlong, camera_info, rotation_matrix=None):
     )
     aspect = W / H
     # tan_fovx = math.tan(camera_info.FoVx * 0.5)
-    tan_fovy = math.tan(camera_info.FoVy * 0.5)
-    tan_fovx = tan_fovy * aspect
-    # tan_fovx = math.tan(1.0 * 0.5)
-    # tan_fovy = math.tan(1.0 * H/W * 0.5)
+    # tan_fovy = math.tan(camera_info.FoVy * 0.5)
+    # tan_fovx = tan_fovy * aspect
+    tan_fovx = math.tan(1.0 * 0.5)
+    tan_fovy = math.tan(1.0 * H/W * 0.5)
 
     # build rays in camera space (now +Z is forward)
     x = gx * tan_fovx
@@ -439,7 +443,7 @@ def render_background_from_env(env_latlong, camera_info, rotation_matrix=None):
     rays_cam = rays_cam / torch.norm(rays_cam, dim=-1, keepdim=True)
 
     # transform to world
-    rays_world = rays_cam @ R.T
+    rays_world = rays_cam @ R
     rays_world = rays_world / torch.norm(rays_world, dim=-1, keepdim=True)
 
     # OPTIONAL user rotation (no initial_rot needed!)
@@ -456,47 +460,7 @@ def render_background_from_env(env_latlong, camera_info, rotation_matrix=None):
         rays_world = rays_world / torch.norm(rays_world, dim=-1, keepdim=True)
 
 
-    # x = gx * tan_fovx
-    # y = gy * tan_fovy
-    # z = -torch.ones_like(x)
-    #
-    # rays_cam = torch.stack((x, y, z), dim=-1)
-    # rays_cam = rays_cam / torch.norm(rays_cam, dim=-1, keepdim=True)
-    #
-    #
-    # rays_world = rays_cam @ R.T
-    # rays_world = rays_world / torch.norm(rays_world, dim=-1, keepdim=True)
-    #
-    # # if rotation_matrix is not None:
-    # #     rot = rotation_matrix
-    # #     if isinstance(rot, torch.Tensor):
-    # #         rot = rot.to("cuda", dtype=torch.float32)
-    # #     if rot.ndim == 3 and rot.shape[0] == 1 and rot.shape[1] == 4 and rot.shape[2] == 4:
-    # #         rot = rot[0]  # [4,4]
-    # #     if rot.shape == (4, 4):
-    # #         rot = rot[:3, :3]  # take upper-left 3x3
-    # #     elif rot.shape != (3, 3):
-    # #         raise ValueError(f"rotation_matrix must be 3x3 or 4x4, got {rot.shape}")
-    # #     rays_world = rays_world @ rot.T
-    # #     rays_world = rays_world / torch.norm(rays_world, dim=-1, keepdim=True)
-    # if rotation_matrix is not None:
-    #     rot = rotation_matrix
-    #     if isinstance(rot, torch.Tensor):
-    #         rot = rot.to("cuda", dtype=torch.float32)
-    #     if rot.ndim == 3:
-    #         rot = rot[0]
-    #     rot3 = rot[:3, :3]
-    #
-    #     # Same direction transform as reflect lookup in shade3()
-    #     initial_rot = torch.tensor([
-    #         [0, 0, 1],
-    #         [0, 1, 0],
-    #         [-1, 0, 0]
-    #     ], device='cuda', dtype=torch.float32)
-    #
-    #     full_rot =  initial_rot @ rot3.T
-    #     rays_world = torch.einsum('hwc,dc->hwd', rays_world, full_rot)
-    #     rays_world = rays_world / torch.norm(rays_world, dim=-1, keepdim=True)
+
 
 
 
