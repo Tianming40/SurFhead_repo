@@ -51,7 +51,7 @@ def flame_to_nvdiffrec_mesh(flame_gaussian_model, timestep=0):
     mesh = nv_mesh.compute_tangents(mesh)
 
     return mesh
-def test_camer(camera_info,cam_pos=np.array([0.3, 0.3, 0.5], dtype=np.float32), target=np.array([0.0, 0.0, 0.0], dtype=np.float32), fovy_deg=60.0):
+def test_camer(camera_info,cam_pos=np.array([ 0.8, -0.35,  0.7], dtype=np.float32), target=np.array([0.0, 0.0, 0.0], dtype=np.float32), fovy_deg=60.0):
 
     forward = target - cam_pos
     forward = forward / np.linalg.norm(forward)
@@ -79,7 +79,7 @@ def test_camer(camera_info,cam_pos=np.array([0.3, 0.3, 0.5], dtype=np.float32), 
     camera_info.FoVy = np.radians(fovy_deg)
     return
 
-def nvdiffrecrender(gaussians, camera_info, timestep, total_frame_num, use_test_camera=False):
+def nvdiffrecrender(gaussians, camera_info, timestep, total_frame_num, use_test_camera=True):
 
     if use_test_camera:
         test_camer(camera_info)
@@ -428,11 +428,9 @@ def render_background_from_env(env_latlong, camera_info, rotation_matrix=None):
         indexing='ij'
     )
     aspect = W / H
-    # tan_fovx = math.tan(camera_info.FoVx * 0.5)
-    # tan_fovy = math.tan(camera_info.FoVy * 0.5)
-    # tan_fovx = tan_fovy * aspect
-    tan_fovx = math.tan(1.0 * 0.5)
-    tan_fovy = math.tan(1.0 * H/W * 0.5)
+
+    tan_fovy = math.tan(np.radians(60) * 0.5)
+    tan_fovx = aspect * tan_fovy
 
     # build rays in camera space (now +Z is forward)
     x = gx * tan_fovx
@@ -446,6 +444,8 @@ def render_background_from_env(env_latlong, camera_info, rotation_matrix=None):
     rays_world = rays_cam @ R
     rays_world = rays_world / torch.norm(rays_world, dim=-1, keepdim=True)
 
+
+    # rays = camera_info.get_rays()
     # OPTIONAL user rotation (no initial_rot needed!)
     if rotation_matrix is not None:
         rot = rotation_matrix
