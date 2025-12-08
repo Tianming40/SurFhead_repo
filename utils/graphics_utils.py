@@ -330,3 +330,15 @@ def get_rays(width, height, intrinsic, camrot):
     pixelcoords = torch.stack((px, py), dim=-1).cuda()  # H x W x 2
     raydir = get_dtu_raydir(pixelcoords, intrinsic, camrot, dir_norm=True)
     return raydir
+
+def get_dtu_raydir(pixelcoords, intrinsic, rot, dir_norm):
+    # rot is c2w
+    ## pixelcoords: H x W x 2
+    x = (pixelcoords[..., 0] + 0.5 - intrinsic[0, 2]) / intrinsic[0, 0]
+    y = (pixelcoords[..., 1] + 0.5 - intrinsic[1, 2]) / intrinsic[1, 1]
+    z = torch.ones_like(x)
+    dirs = torch.stack([x, y, z], axis=-1)
+    dirs = dirs @ rot[:,:].T #\
+    if dir_norm:
+        dirs = torch.nn.functional.normalize(dirs, dim=-1)
+    return dirs

@@ -26,9 +26,10 @@ from utils.camera_utils import cameraList_from_camInfos, camera_to_JSON
 from utils.general_utils import PILtoTorch
 from PIL import Image, ImageFile
 ImageFile.LOAD_TRUNCATED_IMAGES = True
-
+from utils.system_utils import mkdir_p
 from scene.specular_model import SpecularModel
 
+from submodules.nvdiffrec import save_env_map, load_env
 
 class CameraDataset(torch.utils.data.Dataset):
     def __init__(self, cameras: List[Camera]):
@@ -185,13 +186,23 @@ class Scene:
                             "point_cloud.ply"),
                 has_target=args.target_path != "",
             )
+            if self.gaussians.brdf:
+                fn = os.path.join(self.model_path,
+                                "brdf_mlp",
+                                "iteration_" + str(self.loaded_iter),
+                                "brdf_mlp.hdr")
+                self.gaussians.brdf_mlp = load_env(fn, scale=1.0)
+                print(f"Load envmap from: {fn}")
         else:
             self.gaussians.create_from_pcd(scene_info.point_cloud, self.cameras_extent)
 
     def save(self, iteration):
         point_cloud_path = os.path.join(self.model_path, "point_cloud/iteration_{}".format(iteration))
         self.gaussians.save_ply(os.path.join(point_cloud_path, "point_cloud.ply"))
-
+        if self.gaussians.brdf:
+            brdf_mlp_path = os.path.join(self.model_path, f"brdf_mlp/iteration_{iteration}/brdf_mlp.hdr")
+            mkdir_p(os.path.dirname(brdf_mlp_path))
+            save_env_map(brdf_mlp_path, self.gaussians.brdf_mlp)
     def getTrainCameras(self, scale=1.0):
         return CameraDataset(self.train_cameras[scale])
     

@@ -86,7 +86,17 @@ class PipelineParams(ParamGroup):
         self.detach_boundary = False
         self.tight_pruning_threshold = 0.0
         self.spec_only_eyeball = False
+
+        self.brdf = False
         super().__init__(parser, "Pipeline Parameters")
+
+    def extract(self, args):
+        g = super().extract(args)
+        g.brdf = args.brdf_dim>=0
+        if g.brdf:
+            g.convert_SHs_python = True
+        g.brdf_mode = args.brdf_mode
+        return g
 
 class OptimizationParams(ParamGroup):
     def __init__(self, parser):
@@ -142,6 +152,20 @@ class OptimizationParams(ParamGroup):
         self.lambda_eye_alpha = 0.
 
         self.specular_lr_max_steps = 300_000
+
+        self.brdf_mlp_lr_init = 1.6e-2
+        self.brdf_mlp_lr_final = 1.6e-3
+        self.brdf_mlp_lr_delay_mult = 0.01
+        self.brdf_mlp_lr_max_steps = 30_000
+        self.normal_lr = 0.0002
+        self.specular_lr = 0.0002
+        self.roughness_lr = 0.0002
+        self.normal_reg_from_iter = 0
+        self.normal_reg_util_iter = 30_000
+        self.lambda_zero_one = 1e-3
+        self.lambda_predicted_normal = 2e-1
+        self.lambda_delta_reg = 1e-3
+        self.fix_brdf_lr = 0
         super().__init__(parser, "Optimization Parameters")
 
 def get_combined_args(parser : ArgumentParser):

@@ -26,6 +26,7 @@ from utils.general_utils import strip_symmetric, build_scaling_rotation
 import torch.nn.functional as F
 from torch.autograd import Function
 from roma import rotmat_to_unitquat, quat_xyzw_to_wxyz, unitquat_to_rotmat, special_procrustes
+from submodules.nvdiffrec import create_trainable_env_rnd
 
 
     
@@ -50,7 +51,7 @@ class GaussianModel:
         
         self.blend_weight_activation = torch.sigmoid
 
-    def __init__(self, sh_degree : int, sg_degree : int):
+    def __init__(self, sh_degree : int, sg_degree : int,  brdf_dim : int, brdf_mode : str, brdf_envmap_res: int):
         self.active_sh_degree = 0
         self.max_sh_degree = sh_degree  
         self._xyz = torch.empty(0)
@@ -98,6 +99,26 @@ class GaussianModel:
 
         self.blended_R = None
         self.blended_U = None
+
+
+
+        # brdf
+        if (brdf_dim>=0 and sh_degree>=0) or (brdf_dim<0 and sh_degree<0):
+            raise Exception('Please provide exactly one of either brdf_dim or sh_degree!')
+        self.brdf = brdf_dim>=0
+
+        self.brdf_dim = brdf_dim
+        self.brdf_mode = brdf_mode
+        self.brdf_envmap_res = brdf_envmap_res
+        self._specular = torch.empty(0)
+        if self.brdf:
+            self.brdf_mlp = create_trainable_env_rnd(self.brdf_envmap_res, scale=0.0, bias=0.8)
+        else:
+            self.brdf_mlp = None
+
+        self.diffuse_activation = torch.sigmoid
+        self.specular_activation = torch.sigmoid
+
 
     def capture(self):
         return (
@@ -363,10 +384,20 @@ class GaussianModel:
         features_dc = self._features_dc
         features_rest = self._features_rest
         return torch.cat((features_dc, features_rest), dim=1)
-    
+    @property
+    def get_diffuse(self):
+        return self._features_dc
+
+    @property
+    def get_specular(self):
+        return self.specular_activation(self._specular)
     @property
     def get_opacity(self):
         return self.opacity_activation(self._opacity)
+
+    @property
+    def get_brdf_features(self):
+        return self._features_rest
     
     @property
     def get_blend_weight(self):
@@ -392,15 +423,35 @@ class GaussianModel:
             num_pts = self.binding.shape[0]
             fused_point_cloud = torch.zeros((num_pts, 3)).float().cuda()
             fused_color = torch.tensor(np.random.random((num_pts, 3)) / 255.0).float().cuda()
+            features = torch.zeros((fused_color.shape[0], 3, (self.max_sh_degree + 1) ** 2)).float().cuda()
+            features[:, :3, 0] = fused_color
+            features[:, 3:, 1:] = 0.0
         else:
             fused_point_cloud = torch.tensor(np.asarray(pcd.points)).float().cuda()
-            fused_color = RGB2SH(torch.tensor(np.asarray(pcd.colors)).float().cuda())
-        features = torch.zeros((fused_color.shape[0], 3, (self.max_sh_degree + 1) ** 2)).float().cuda()
-        features[:, :3, 0 ] = fused_color
-        features[:, 3:, 1:] = 0.0
-        self._xyz = nn.Parameter(fused_point_cloud.requires_grad_(True))
-        self._features_dc = nn.Parameter(features[:,:,0:1].transpose(1, 2).contiguous().requires_grad_(True))
-        self._features_rest = nn.Parameter(features[:,:,1:].transpose(1, 2).contiguous().requires_grad_(True))
+            if not self.brdf:
+                fused_color = RGB2SH(torch.tensor(np.asarray(pcd.colors)).float().cuda())
+                features = torch.zeros((fused_color.shape[0], 3, (self.max_sh_degree + 1) ** 2)).float().cuda()
+                features[:, :3, 0] = fused_color
+                features[:, 3:, 1:] = 0.0
+            elif (self.brdf_mode == "envmap" and self.brdf_dim == 0):
+                fused_color = torch.tensor(np.asarray(pcd.colors)).float().cuda()
+                features = torch.zeros((fused_color.shape[0], self.brdf_dim + 3)).float().cuda()
+                features[:, :3] = fused_color
+                features[:, 3:] = 0.0
+            elif self.brdf_mode == "envmap" and self.brdf_dim > 0:
+                fused_color = torch.tensor(np.asarray(pcd.colors)).float().cuda()
+                features = torch.zeros((fused_color.shape[0], 3)).float().cuda()
+                features[:, :3] = fused_color
+                features[:, 3:] = 0.0
+                features_rest = torch.zeros((fused_color.shape[0], 3, (self.brdf_dim + 1) ** 2)).float().cuda()
+            else:
+                raise NotImplementedError
+
+
+
+
+
+
 
         sg_features = torch.zeros((fused_color.shape[0], self.max_sg_degree)).float().cuda()
 
@@ -418,8 +469,23 @@ class GaussianModel:
         opacities = inverse_sigmoid(0.1 * torch.ones((fused_point_cloud.shape[0], 1), dtype=torch.float, device="cuda"))
         
         self._xyz = nn.Parameter(fused_point_cloud.requires_grad_(True))
-        self._features_dc = nn.Parameter(features[:,:,0:1].transpose(1, 2).contiguous().requires_grad_(True))
-        self._features_rest = nn.Parameter(features[:,:,1:].transpose(1, 2).contiguous().requires_grad_(True))
+
+
+
+        if not self.brdf:
+            self._features_dc = nn.Parameter(features[:,:,0:1].transpose(1, 2).contiguous().requires_grad_(True))
+            self._features_rest = nn.Parameter(features[:,:,1:].transpose(1, 2).contiguous().requires_grad_(True))
+        else:
+            self._features_dc = nn.Parameter(features[:, :3].contiguous().requires_grad_(True))
+            if (self.brdf_mode == "envmap" and self.brdf_dim == 0):
+                self._features_rest = nn.Parameter(features[:, 3:].contiguous().requires_grad_(True))
+            elif self.brdf_mode == "envmap":
+                self._features_rest = nn.Parameter(features_rest.contiguous().requires_grad_(True))
+            specular_len = 3
+            self._specular = nn.Parameter(
+                torch.zeros((fused_point_cloud.shape[0], specular_len), device="cuda").requires_grad_(True))
+
+
         self._scaling = nn.Parameter(scales.requires_grad_(True))
         self._rotation = nn.Parameter(rots.requires_grad_(True))
         self._opacity = nn.Parameter(opacities.requires_grad_(True))
@@ -451,6 +517,7 @@ class GaussianModel:
   
 
     def training_setup(self, training_args):
+        self.fix_brdf_lr = training_args.fix_brdf_lr
         self.percent_dense = training_args.percent_dense
         self.xyz_gradient_accum = torch.zeros((self.get_xyz.shape[0], 1), device="cuda")
         self.xyz_gradient_accum_abs = torch.zeros((self.get_xyz.shape[0], 1), device="cuda")
@@ -473,6 +540,11 @@ class GaussianModel:
         if self.train_kinematic:
             l.append({'params': [self.blend_weight], 'lr': training_args.blend_weight_lr, "name": "blend_weight"})
         # breakpoint()
+        if self.brdf:
+            l.extend([
+                {'params': list(self.brdf_mlp.parameters()), 'lr': training_args.brdf_mlp_lr_init, "name": "brdf_mlp"},
+                {'params': [self._specular], 'lr': training_args.specular_lr, "name": "specular"},
+            ])
         self.optimizer = torch.optim.Adam(l, lr=0.0, eps=1e-15)
         self.xyz_scheduler_args = get_expon_lr_func(lr_init=training_args.position_lr_init*self.spatial_lr_scale,
                                                     lr_final=training_args.position_lr_final*self.spatial_lr_scale,
@@ -483,19 +555,51 @@ class GaussianModel:
                                                     lr_final=(training_args.blend_weight_lr/100.0)*self.spatial_lr_scale,
                                                     lr_delay_mult=training_args.position_lr_delay_mult,
                                                     max_steps=training_args.position_lr_max_steps)
+        self.brdf_mlp_scheduler_args = get_expon_lr_func(lr_init=training_args.brdf_mlp_lr_init,
+                                                         lr_final=training_args.brdf_mlp_lr_final,
+                                                         lr_delay_mult=training_args.brdf_mlp_lr_delay_mult,
+                                                         max_steps=training_args.brdf_mlp_lr_max_steps)
+
+    def training_setup_SHoptim(self, training_args):
+        self.fix_brdf_lr = training_args.fix_brdf_lr
+        self.percent_dense = training_args.percent_dense
+        self.xyz_gradient_accum = torch.zeros((self.get_xyz.shape[0], 1), device="cuda")
+        self.denom = torch.zeros((self.get_xyz.shape[0], 1), device="cuda")
+
+        l = [
+            {'params': [self._features_rest], 'lr': training_args.feature_lr / 20.0, "name": "f_rest"},
+        ]
+
+        self.optimizer = torch.optim.Adam(l, lr=0.0, eps=1e-15)
+
+        # self.f_rest_scheduler_args = get_const_lr_func(training_args.feature_lr / 20.0)
+        if not self.fix_brdf_lr:
+            self.f_rest_scheduler_args = get_expon_lr_func(lr_init=training_args.feature_lr / 20.0,
+                                                           lr_final=training_args.feature_lr_final / 20.0,
+                                                           lr_delay_steps=30000,
+                                                           lr_delay_mult=training_args.brdf_mlp_lr_delay_mult,
+                                                           max_steps=40000)
+            # max_steps=training_args.iterations)
+
+    def _update_learning_rate(self, iteration, param):
+        for param_group in self.optimizer.param_groups:
+            if param_group["name"] == param:
+                try:
+                    lr = getattr(self, f"{param}_scheduler_args", self.brdf_mlp_scheduler_args)(iteration)
+                    param_group['lr'] = lr
+                    return lr
+                except AttributeError:
+                    pass
 
     def update_learning_rate(self, iteration):
         ''' Learning rate scheduling per step '''
-       
-        for param_group in self.optimizer.param_groups:
-            if param_group["name"] == "xyz":
-                lr = self.xyz_scheduler_args(iteration)
-                param_group['lr'] = lr
-                return lr
-            # if para
+        self._update_learning_rate(iteration, "xyz")
+        if self.brdf and not self.fix_brdf_lr:
+            for param in ["brdf_mlp", "specular", "f_dc", "f_rest"]:
+                lr = self._update_learning_rate(iteration, param)
             
 
-    def construct_list_of_attributes(self):
+    def construct_list_of_attributes(self, viewer_fmt=False):
         l = ['x', 'y', 'z', 'nx', 'ny', 'nz']
         
         if self.train_kinematic or self.train_kinematic_dist:
@@ -505,10 +609,26 @@ class GaussianModel:
             for i in range(4):
                 l.append('blend_weight_{}'.format(i))
         # All channels except the 3 DC
-        for i in range(self._features_dc.shape[1]*self._features_dc.shape[2]):
-            l.append('f_dc_{}'.format(i))
-        for i in range(self._features_rest.shape[1]*self._features_rest.shape[2]):
-            l.append('f_rest_{}'.format(i))
+
+        if not self.brdf:
+            for i in range(self._features_dc.shape[1]*self._features_dc.shape[2]):
+                l.append('f_dc_{}'.format(i))
+            for i in range(self._features_rest.shape[1]*self._features_rest.shape[2]):
+                l.append('f_rest_{}'.format(i))
+        else:
+            l.extend(['nx2', 'ny2', 'nz2'])
+            for i in range(self._features_dc.shape[1]):
+                l.append('f_dc_{}'.format(i))
+            if viewer_fmt:
+                features_rest_len = 45
+            elif (self.brdf_mode == "envmap" and self.brdf_dim == 0):
+                features_rest_len = self._features_rest.shape[1]
+            elif self.brdf_mode == "envmap":
+                features_rest_len = self._features_rest.shape[1] * self._features_rest.shape[2]
+            for i in range(features_rest_len):
+                l.append('f_rest_{}'.format(i))
+
+
         l.append('opacity')
         for i in range(self._scaling.shape[1]):
             l.append('scale_{}'.format(i))
@@ -519,9 +639,12 @@ class GaussianModel:
         if self.binding is not None:
             for i in range(1):
                 l.append('binding_{}'.format(i))
+        if not viewer_fmt and self.brdf:
+            for i in range(self._specular.shape[1]):
+                l.append('specular{}'.format(i))
         return l
 
-    def save_ply(self, path):
+    def save_ply(self, path, viewer_fmt=False):
         mkdir_p(os.path.dirname(path))
         # breakpoint()
         xyz = self._xyz.detach().cpu().numpy()
@@ -531,12 +654,24 @@ class GaussianModel:
             # blend_weight = self.blend_weight[self.binding].detach().cpu().numpy()
             blend_weight = self.blend_weight.detach().cpu().numpy()
 
-        f_dc = self._features_dc.detach().transpose(1, 2).flatten(start_dim=1).contiguous().cpu().numpy()
-        f_rest = self._features_rest.detach().transpose(1, 2).flatten(start_dim=1).contiguous().cpu().numpy()
+        # f_dc = self._features_dc.detach().transpose(1, 2).flatten(start_dim=1).contiguous().cpu().numpy()
+        # f_rest = self._features_rest.detach().transpose(1, 2).flatten(start_dim=1).contiguous().cpu().numpy()
+        f_dc = self._features_dc.detach().transpose(1, 2).flatten(
+            start_dim=1).contiguous().cpu().numpy() if not self.brdf else self._features_dc.detach().cpu().numpy()
+        f_rest = self._features_rest.detach().transpose(1, 2).flatten(start_dim=1).contiguous().cpu().numpy() if not ((
+                    self.brdf and self.brdf_mode == "envmap" and self.brdf_dim == 0)) else self._features_rest.detach().cpu().numpy()
+
         opacities = self._opacity.detach().cpu().numpy()
         scale = self._scaling.detach().cpu().numpy()
         rotation = self._rotation.detach().cpu().numpy()
         f_sg = self._features_sg.detach().cpu().numpy()
+        specular = None if not self.brdf else self._specular.detach().cpu().numpy()
+
+
+        if viewer_fmt:
+            f_dc = 0.5 + (0.5*normals)
+            f_rest = np.zeros((f_rest.shape[0], 45))
+            normals = np.zeros_like(normals)
 
         dtype_full = [(attribute, 'f4') for attribute in self.construct_list_of_attributes()]
         # import pdb;pdb.set_trace()
@@ -550,6 +685,10 @@ class GaussianModel:
         if self.binding is not None:
             binding = self.binding.detach().cpu().numpy()
             attributes = np.concatenate((attributes, binding[:, None]), axis=1)
+
+        if self.brdf and not viewer_fmt:
+            attributes = np.concatenate((attributes, specular), axis=1)
+
         # breakpoint()
         elements[:] = list(map(tuple, attributes))
         el = PlyElement.describe(elements, 'vertex')
@@ -568,20 +707,52 @@ class GaussianModel:
                         np.asarray(plydata.elements[0]["y"]),
                         np.asarray(plydata.elements[0]["z"])),  axis=1)
         opacities = np.asarray(plydata.elements[0]["opacity"])[..., np.newaxis]
+        if not self.brdf:
+            features_dc = np.zeros((xyz.shape[0], 3, 1))
+            features_dc[:, 0, 0] = np.asarray(plydata.elements[0]["f_dc_0"])
+            features_dc[:, 1, 0] = np.asarray(plydata.elements[0]["f_dc_1"])
+            features_dc[:, 2, 0] = np.asarray(plydata.elements[0]["f_dc_2"])
+        else:
+            features_dc = np.zeros((xyz.shape[0], 3))
+            features_dc[:, 0] = np.asarray(plydata.elements[0]["f_dc_0"])
+            features_dc[:, 1] = np.asarray(plydata.elements[0]["f_dc_1"])
+            features_dc[:, 2] = np.asarray(plydata.elements[0]["f_dc_2"])
 
-        features_dc = np.zeros((xyz.shape[0], 3, 1))
-        features_dc[:, 0, 0] = np.asarray(plydata.elements[0]["f_dc_0"])
-        features_dc[:, 1, 0] = np.asarray(plydata.elements[0]["f_dc_1"])
-        features_dc[:, 2, 0] = np.asarray(plydata.elements[0]["f_dc_2"])
+
+
+
+
+
 
         extra_f_names = [p.name for p in plydata.elements[0].properties if p.name.startswith("f_rest_")]
         extra_f_names = sorted(extra_f_names, key = lambda x: int(x.split('_')[-1]))
-        assert len(extra_f_names)==3*(self.max_sh_degree + 1) ** 2 - 3
-        features_extra = np.zeros((xyz.shape[0], len(extra_f_names)))
-        for idx, attr_name in enumerate(extra_f_names):
-            features_extra[:, idx] = np.asarray(plydata.elements[0][attr_name])
-        # Reshape (P,F*SH_coeffs) to (P, F, SH_coeffs except DC)
-        features_extra = features_extra.reshape((features_extra.shape[0], 3, (self.max_sh_degree + 1) ** 2 - 1))
+        if not self.brdf:
+            assert len(extra_f_names)==3*(self.max_sh_degree + 1) ** 2 - 3
+            features_extra = np.zeros((xyz.shape[0], len(extra_f_names)))
+            for idx, attr_name in enumerate(extra_f_names):
+                features_extra[:, idx] = np.asarray(plydata.elements[0][attr_name])
+            # Reshape (P,F*SH_coeffs) to (P, F, SH_coeffs except DC)
+            features_extra = features_extra.reshape((features_extra.shape[0], 3, (self.max_sh_degree + 1) ** 2 - 1))
+        elif self.brdf_mode == "envmap":
+            features_extra = np.zeros((xyz.shape[0], 3 * (self.brdf_dim + 1) ** 2))
+            if len(extra_f_names) == 3 * (self.brdf_dim + 1) ** 2:
+                for idx, attr_name in enumerate(extra_f_names):
+                    features_extra[:, idx] = np.asarray(plydata.elements[0][attr_name])
+                features_extra = features_extra.reshape((features_extra.shape[0], (self.brdf_dim + 1) ** 2, 3))
+                features_extra = features_extra.swapaxes(1, 2)
+            else:
+                print(f"NO INITIAL SH FEATURES FOUND!!! USE ZERO SH AS INITIALIZE.")
+                features_extra = features_extra.reshape((features_extra.shape[0], 3, (self.brdf_dim + 1) ** 2))
+        else:
+            assert len(extra_f_names) == self.brdf_dim
+            features_extra = np.zeros((xyz.shape[0], len(extra_f_names)))
+            for idx, attr_name in enumerate(extra_f_names):
+                features_extra[:, idx] = np.asarray(plydata.elements[0][attr_name])
+
+
+
+
+
 
         scale_names = [p.name for p in plydata.elements[0].properties if p.name.startswith("scale_")]
         scale_names = sorted(scale_names, key = lambda x: int(x.split('_')[-1]))
@@ -595,6 +766,13 @@ class GaussianModel:
         for idx, attr_name in enumerate(rot_names):
             rots[:, idx] = np.asarray(plydata.elements[0][attr_name])
 
+
+        if self.brdf:
+            specular_names = [p.name for p in plydata.elements[0].properties if p.name.startswith("specular")]
+            specular = np.zeros((xyz.shape[0], len(specular_names)))
+            for idx, attr_name in enumerate(specular_names):
+                specular[:, idx] = np.asarray(plydata.elements[0][attr_name])
+
         sg_names = [p.name for p in plydata.elements[0].properties if p.name.startswith("f_sg_")]
         f_sgs = np.zeros((xyz.shape[0], len(sg_names)))
         for idx, attr_name in enumerate(sg_names):
@@ -607,7 +785,10 @@ class GaussianModel:
         self._scaling = nn.Parameter(torch.tensor(scales, dtype=torch.float, device="cuda").requires_grad_(True))
         self._rotation = nn.Parameter(torch.tensor(rots, dtype=torch.float, device="cuda").requires_grad_(True))
         self._features_sg = nn.Parameter(torch.tensor(f_sgs, dtype=torch.float, device="cuda").requires_grad_(True))
-     
+        if self.brdf:
+            self._specular = nn.Parameter(torch.tensor(specular, dtype=torch.float, device="cuda").requires_grad_(True))
+
+
         self.active_sh_degree = self.max_sh_degree
 
         # optional fields
@@ -641,6 +822,8 @@ class GaussianModel:
     def replace_tensor_to_optimizer(self, tensor, name):
         optimizable_tensors = {}
         for group in self.optimizer.param_groups:
+            if group["name"] == "brdf_mlp":
+                continue
             if group["name"] == name:
                 stored_state = self.optimizer.state.get(group['params'][0], None)
                 stored_state["exp_avg"] = torch.zeros_like(tensor)
@@ -658,6 +841,8 @@ class GaussianModel:
         for group in self.optimizer.param_groups:
             # rule out parameters that are not properties of gaussians
             if len(group["params"]) != 1 or group["params"][0].shape[0] != mask.shape[0]:
+                continue
+            if group["name"] == "brdf_mlp":
                 continue
 
             stored_state = self.optimizer.state.get(group['params'][0], None)
@@ -698,7 +883,9 @@ class GaussianModel:
         self._rotation = optimizable_tensors["rotation"]
         self._features_sg = optimizable_tensors["f_sg"]
         # breakpoint()
- 
+        if self.brdf:
+            self._specular = optimizable_tensors["specular"]
+
         self.xyz_gradient_accum = self.xyz_gradient_accum[valid_points_mask]
         self.xyz_gradient_accum_abs = self.xyz_gradient_accum_abs[valid_points_mask]
         self.xyz_gradient_accum_abs_max = self.xyz_gradient_accum_abs_max[valid_points_mask]
@@ -726,6 +913,8 @@ class GaussianModel:
             # rule out parameters that are not properties of gaussians
             if group["name"] not in tensors_dict:
                 continue
+            if group["name"] == "brdf_mlp":
+                continue
             
             assert len(group["params"]) == 1
             extension_tensor = tensors_dict[group["name"]]
@@ -746,7 +935,7 @@ class GaussianModel:
 
         return optimizable_tensors
 
-    def densification_postfix(self, new_xyz, new_features_dc, new_features_rest, new_opacities, new_scaling, new_rotation, new_feature_sg,
+    def densification_postfix(self, new_xyz, new_features_dc, new_features_rest, new_opacities, new_scaling, new_rotation, new_feature_sg,new_specular,
                              new_blend_weight=None):
         d = {"xyz": new_xyz,
         "f_dc": new_features_dc,
@@ -758,6 +947,10 @@ class GaussianModel:
 
         if self.train_kinematic:
             d["blend_weight"] = new_blend_weight
+        if self.brdf:
+            d.update({
+                "specular" : new_specular,
+            })
         optimizable_tensors = self.cat_tensors_to_optimizer(d)
         self._xyz = optimizable_tensors["xyz"]
         self._features_dc = optimizable_tensors["f_dc"]
@@ -766,7 +959,8 @@ class GaussianModel:
         self._scaling = optimizable_tensors["scaling"]
         self._rotation = optimizable_tensors["rotation"]
         self._features_sg = optimizable_tensors["f_sg"]
-        
+        if self.brdf:
+            self._specular = optimizable_tensors["specular"]
         #! after densification -> reinitialize
         self.tight_visibility_mask = torch.zeros((self.get_xyz.shape[0]), device="cuda")
         self.xyz_gradient_accum = torch.zeros((self.get_xyz.shape[0], 1), device="cuda")
@@ -817,10 +1011,17 @@ class GaussianModel:
         else:
             new_scaling = self.scaling_inverse_activation(self.get_scaling[selected_pts_mask].repeat(N,1) / (0.8*N))
         new_rotation = self._rotation[selected_pts_mask].repeat(N,1)
-        new_features_dc = self._features_dc[selected_pts_mask].repeat(N,1,1)
-        new_features_rest = self._features_rest[selected_pts_mask].repeat(N,1,1)
+        # new_features_dc = self._features_dc[selected_pts_mask].repeat(N,1,1)
+        # new_features_rest = self._features_rest[selected_pts_mask].repeat(N,1,1)
+        new_features_dc = self._features_dc[selected_pts_mask].repeat(N, 1, 1) if not self.brdf else self._features_dc[
+            selected_pts_mask].repeat(N, 1)
+        new_features_rest = self._features_rest[selected_pts_mask].repeat(N, 1, 1) if not (
+        (self.brdf and self.brdf_mode == "envmap" and self.brdf_dim == 0)) else self._features_rest[
+            selected_pts_mask].repeat(N, 1)
+
         new_opacity = self._opacity[selected_pts_mask].repeat(N,1)
         new_feature_sg = self._features_sg[selected_pts_mask].repeat(N, 1)
+        new_specular = self._specular[selected_pts_mask].repeat(N,1) if self.brdf else None
 
         if self.binding is not None:
             # Toyota Motor Europe NV/SA and its affiliated companies retain all intellectual property and proprietary rights in and to the following code lines and related documentation. Any commercial use, reproduction, disclosure or distribution of these code lines and related documentation without an express license agreement from Toyota Motor Europe NV/SA is strictly prohibited.
@@ -839,7 +1040,7 @@ class GaussianModel:
                 new_blend_weight = self.blend_weight[selected_pts_mask].repeat(N,1)
         else:
             new_blend_weight = None
-        self.densification_postfix(new_xyz, new_features_dc, new_features_rest, new_opacity, new_scaling, new_rotation, new_feature_sg, new_blend_weight)
+        self.densification_postfix(new_xyz, new_features_dc, new_features_rest, new_opacity, new_scaling, new_rotation, new_feature_sg, new_specular,new_blend_weight)
 
         prune_filter = torch.cat((selected_pts_mask, torch.zeros(N * selected_pts_mask.sum(), device="cuda", dtype=bool)))
         self.prune_points(prune_filter)
@@ -869,6 +1070,7 @@ class GaussianModel:
         new_scaling = self._scaling[selected_pts_mask]
         new_rotation = self._rotation[selected_pts_mask]
         new_feature_sg = self._features_sg[selected_pts_mask]
+        new_specular = self._specular[selected_pts_mask] if self.brdf else None
 
         if self.binding is not None:
             # Toyota Motor Europe NV/SA and its affiliated companies retain all intellectual property and proprietary rights in and to the following code lines and related documentation. Any commercial use, reproduction, disclosure or distribution of these code lines and related documentation without an express license agreement from Toyota Motor Europe NV/SA is strictly prohibited.
@@ -887,7 +1089,7 @@ class GaussianModel:
             new_blend_weight = None
             
             # self.densification_postfix(new_xyz, new_features_dc, new_features_rest, new_opacities, new_scaling, new_rotation, new_normal, new_normal2)
-        self.densification_postfix(new_xyz, new_features_dc, new_features_rest, new_opacities, new_scaling, new_rotation, new_feature_sg, new_blend_weight)
+        self.densification_postfix(new_xyz, new_features_dc, new_features_rest, new_opacities, new_scaling, new_rotation, new_feature_sg,new_specular, new_blend_weight)
 
     def densify_and_prune(self, max_grad, min_opacity, extent, max_screen_size, \
               detach_eyeball_geometry=False):
@@ -981,3 +1183,6 @@ class GaussianModel:
         #     # breakpoint()
         #     self.tight_visibility_mask = torch.logical_or(self.tight_visibility_mask, visibility_filter_tight)
             # print(self.tight_visibility_mask.sum(),'SUM')
+
+    def set_requires_grad(self, attrib_name, state: bool):
+        getattr(self, f"_{attrib_name}").requires_grad = state

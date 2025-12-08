@@ -19,6 +19,7 @@ from utils.mesh_utils import world_to_camera, compute_face_normals
 from utils.loss_utils import hann_window
 from utils.general_utils import build_rotation
 from utils.point_utils import depth_to_normal
+from submodules.nvdiffrec.render import light
 
 
 def render(viewpoint_camera, pc : Union[GaussianModel, FlameGaussianModel], pipe, 
@@ -316,6 +317,7 @@ def normalize_normal_inplace(normal, alpha):
     normal = torch.where(fg_mask, torch.nn.functional.normalize(normal, p=2, dim=0), normal)
 
 
+
 def brdf_render(viewpoint_camera, pc: Union[GaussianModel, FlameGaussianModel, BRDFFlameGaussianModel], pipe,
                 bg_color: torch.Tensor, scaling_modifier=1.0, override_color=None, specular_color=None, speed=False):
     """
@@ -406,12 +408,12 @@ def brdf_render(viewpoint_camera, pc: Union[GaussianModel, FlameGaussianModel, B
 
                 diffuse = pc.get_diffuse  # (N, 3)
                 specular = pc.get_specular  # (N, 3)
-                roughness = pc.get_roughness  # (N, 1)
                 normal = pc.get_normal
-                color, brdf_pkg = pc.brdf_mlp.shade(gb_pos[None, None, ...], normal[None, None, ...],
-                                                    diffuse[None, None, ...], specular[None, None, ...],
-                                                    roughness[None, None, ...], view_pos[None, None, ...])
-
+                # color, brdf_pkg = pc.brdf_mlp.shade(gb_pos[None, None, ...], normal[None, None, ...],
+                #                                     diffuse[None, None, ...], specular[None, None, ...],
+                #                                     roughness[None, None, ...], view_pos[None, None, ...])
+                color, brdf_pkg = pc.brdf_mlp.shade3(gb_pos[None, None, ...], normal[None, None, ...],
+                                                   diffuse[None, None, ...], specular[None, None, ...], view_pos[None, None, ...])
                 colors_precomp = color.squeeze()  # (N, 3)
                 diffuse_color = brdf_pkg['diffuse'].squeeze()  # (N, 3)
                 specular_color = brdf_pkg['specular'].squeeze()  # (N, 3)
@@ -427,7 +429,7 @@ def brdf_render(viewpoint_camera, pc: Union[GaussianModel, FlameGaussianModel, B
                     brdf_outputs.update({
                         "diffuse": diffuse,
                         "specular": specular,
-                        "roughness": roughness,
+                        # "roughness": roughness,
                         "diffuse_color": diffuse_color,
                         "specular_color": specular_color,
                         "normal": normal,
@@ -459,22 +461,6 @@ def brdf_render(viewpoint_camera, pc: Union[GaussianModel, FlameGaussianModel, B
     else:
         colors_precomp = override_color
 
-    # brdf not SG
-    # if pipe.SGs:
-    #     shs_view = pc.get_features.transpose(1, 2).view(-1, 3, (pc.max_sh_degree + 1) ** 2)
-    #     dir_pp = (means3D - viewpoint_camera.camera_center.repeat(means3D.shape[0], 1).cuda())
-    #     dir_pp_normalized = dir_pp / dir_pp.norm(dim=1, keepdim=True)
-    #     sh2rgb = eval_sh(pc.active_sh_degree,
-    #                      shs_view,
-    #                      dir_pp_normalized)
-    #     if specular_color is None:
-    #         colors_precomp = torch.clamp_min(sh2rgb + 0.5, 0.0)
-    #     else:
-    #
-    #         specular_color_full = torch.zeros_like(sh2rgb).to(sh2rgb)
-    #         specular_color_full[eyeball_indices] = specular_color
-    #         colors_precomp = torch.clamp_min(sh2rgb + 0.5, 0.0) + specular_color_full
-    #     shs = None
 
     try:
         means3D.retain_grad()
@@ -567,6 +553,13 @@ def brdf_render(viewpoint_camera, pc: Union[GaussianModel, FlameGaussianModel, B
         'surfel_surf_depth': surf_depth,
         'surfel_surf_normal': surf_normal,
     })
+
+
+
+
+
+
+
 
     if not speed and pipe.brdf:
         render_extras = {}
