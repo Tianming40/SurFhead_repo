@@ -46,7 +46,7 @@ class ParamGroup:
 
 class ModelParams(ParamGroup): 
     def __init__(self, parser, sentinel=False):
-        self.sh_degree = 3
+        self.sh_degree = -1
         self.sg_degree = 24
         self._source_path = "/home/tzhang/nersemble_data/074/cluster/ikarus/sqian/project/dynamic-head-avatars/code/multi-view-head-tracker/export/074_EMO-1_v16_DS2-0.5x_lmkSTAR_teethV3_SMOOTH_offsetS_whiteBg_maskBelowLine"  # Path to the source data set
         self._target_path = ""  # Path to the target data set for pose and expression transfer
@@ -62,11 +62,16 @@ class ModelParams(ParamGroup):
         self.select_camera_id = -1
         self.backface_culling_smooth = True
         self.backface_culling_hard =  False
+
+        self.brdf_dim = 3
+        self.brdf_mode = "envmap"
+        self.brdf_envmap_res = 64
         super().__init__(parser, "Loading Parameters", sentinel)
 
     def extract(self, args):
         g = super().extract(args)
         g.source_path = os.path.abspath(g.source_path)
+        g.brdf = g.brdf_dim >= 0
         return g
 
 class PipelineParams(ParamGroup):
@@ -87,7 +92,7 @@ class PipelineParams(ParamGroup):
         self.tight_pruning_threshold = 0.0
         self.spec_only_eyeball = False
 
-        self.brdf = False
+        self.brdf = True
         super().__init__(parser, "Pipeline Parameters")
 
     def extract(self, args):

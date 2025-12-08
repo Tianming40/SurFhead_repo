@@ -20,11 +20,11 @@ from roma import rotmat_to_unitquat, quat_xyzw_to_wxyz, rotmat_to_rotvec, specia
 
 
 class FlameGaussianModel(GaussianModel):
-    def __init__(self, sh_degree : int, sg_degree: int, disable_flame_static_offset=False, not_finetune_flame_params=False,\
+    def __init__(self, sh_degree : int, sg_degree: int,  brdf_dim : int, brdf_mode : str, brdf_envmap_res: int, disable_flame_static_offset=False, not_finetune_flame_params=False,\
         n_shape=300, n_expr=100, train_kinematic=False, DTF=False,
-        invT_Jacobian = False,  densification_type='arithmetic_mean', detach_eyeball_geometry = False, \
+        invT_Jacobian = False,  densification_type='arithmetic_mean', detach_eyeball_geometry = False
             ):
-        super().__init__(sh_degree, sg_degree)
+        super().__init__(sh_degree, sg_degree,brdf_dim,brdf_mode,brdf_envmap_res)
         
         self.disable_flame_static_offset = disable_flame_static_offset
         self.not_finetune_flame_params = not_finetune_flame_params
