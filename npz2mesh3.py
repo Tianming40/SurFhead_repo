@@ -429,7 +429,7 @@ def nvdiffrecrender(gaussians, camera_info, timestep, total_frame_num, use_test_
         pic_path = os.path.join(total_dir, f"{picture_name}_total.png")
         plotter.screenshot(pic_path)
 
-        plotter.deep_cleanup()
+        plotter.deep_clean()
         plotter.close()
 
 
@@ -464,7 +464,7 @@ def nvdiffrecrender(gaussians, camera_info, timestep, total_frame_num, use_test_
         pic_path = os.path.join(diffuse_dir, f"{picture_name}_diffuse.png")
         plotter.screenshot(pic_path)
 
-        plotter.deep_cleanup()
+        plotter.deep_clean()
         plotter.close()
 
 
@@ -499,7 +499,7 @@ def nvdiffrecrender(gaussians, camera_info, timestep, total_frame_num, use_test_
         pic_path = os.path.join(specular_dir, f"{picture_name}_specular.png")
         plotter.screenshot(pic_path)
 
-        plotter.deep_cleanup()
+        plotter.deep_clean()
         plotter.close()
 
         #
