@@ -129,8 +129,8 @@ class OptimizationParams(ParamGroup):
         #! for 2dgs
         self.percent_dense = 0.01
         self.lambda_dssim = 0.2
-        self.lambda_dist = 0.  # 100.0
-        self.lambda_normal = 0.  # 0.05
+        self.lambda_dist = 100  # 100.0
+        self.lambda_normal = 0.05  # 0.05
         self.opacity_cull = 0.05
         
         #! for binding inheritance
@@ -139,7 +139,7 @@ class OptimizationParams(ParamGroup):
 
         self.densification_type = 'arithmetic_mean'
 
-        self.lambda_eye_alpha = 0.
+        self.lambda_eye_alpha = 0.1
 
         self.specular_lr_max_steps = 300_000
         super().__init__(parser, "Optimization Parameters")
