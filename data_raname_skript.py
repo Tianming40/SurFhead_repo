@@ -42,7 +42,7 @@ def remove_total_from_filenames(folder_path):
 # Usage
 if __name__ == "__main__":
     # Replace with your folder path
-    folder_path = "/path/to/your/folder"
+    folder_path = "/home/tzhang/sythetic_data/images"
 
     # Call the function
     remove_total_from_filenames(folder_path)
