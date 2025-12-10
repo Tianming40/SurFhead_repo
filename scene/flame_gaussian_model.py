@@ -384,3 +384,61 @@ class FlameGaussianModel(GaussianModel):
             self._scaling = self._scaling[mask]
             self._rotation = self._rotation[mask]
             self._opacity = self._opacity[mask]
+
+
+
+
+    def set_training_stage(self, stage):
+        self.training_stage = stage
+
+        if stage == 1:
+            self.set_requires_grad("specular", False)
+            self.brdf_mlp.requires_grad_(False)
+
+
+            self.set_requires_grad("xyz", True)
+            self.set_requires_grad("scaling", True)
+            self.set_requires_grad("rotation", True)
+            self.set_requires_grad("opacity", True)
+            self.set_requires_grad("features_dc", True)
+            self.set_requires_grad("features_rest", True)
+            self.set_requires_grad("features_sg", True)
+
+        elif stage == 2:
+
+            self.set_requires_grad("specular", True)
+            self.set_requires_grad("features_dc", True)
+            self.set_requires_grad("features_rest", True)
+            self.brdf_mlp.requires_grad_(True)
+
+            self.set_requires_grad("xyz", False)
+            self.set_requires_grad("scaling", False)
+            self.set_requires_grad("rotation", False)
+            self.set_requires_grad("opacity", False)
+            self.set_requires_grad("features_sg", False)
+
+            self.flame_param['rotation'].requires_grad = False
+            self.flame_param['neck_pose'].requires_grad = False
+            self.flame_param['jaw_pose'].requires_grad = False
+            self.flame_param['eyes_pose'].requires_grad = False
+
+            # translation
+            self.flame_param['translation'].requires_grad = False
+
+            # expression
+            self.flame_param['expr'].requires_grad = False
+
+        elif stage == 3:
+
+            self.set_requires_grad("specular", True)
+            self.set_requires_grad("roughness", True)
+            self.brdf_mlp.requires_grad_(True)
+
+            self.set_requires_grad("xyz", True)
+            self.set_requires_grad("scaling", True)
+            self.set_requires_grad("rotation", True)
+            self.set_requires_grad("opacity", True)
+            self.set_requires_grad("features_dc", True)
+            self.set_requires_grad("features_rest", True)
+            self.set_requires_grad("features_sg", True)
+

@@ -57,13 +57,17 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
             n_expr = 50
         else:
             n_shape = 300
-            n_expr = 100    
-        
-       
-    
-        gaussians = FlameGaussianModel(dataset.sh_degree, dataset.sg_degree, dataset.disable_flame_static_offset, dataset.not_finetune_flame_params, n_shape=n_shape, n_expr=n_expr, 
-            train_kinematic=pipe.train_kinematic, DTF = pipe.DTF,
-            densification_type=opt.densification_type, detach_eyeball_geometry = pipe.detach_eyeball_geometry)
+            n_expr = 100
+
+        gaussians = FlameGaussianModel(dataset.sh_degree, dataset.sg_degree, brdf_dim=-1,
+                                       brdf_mode=dataset.brdf_mode,
+                                       brdf_envmap_res=dataset.brdf_envmap_res,
+                                       disable_flame_static_offset=dataset.disable_flame_static_offset,
+                                       not_finetune_flame_params=dataset.not_finetune_flame_params, n_shape=n_shape,
+                                       n_expr=n_expr,
+                                       train_kinematic=pipe.train_kinematic, DTF=pipe.DTF,
+                                       densification_type=opt.densification_type,
+                                       detach_eyeball_geometry=pipe.detach_eyeball_geometry)
         try:
             mesh_renderer = NVDiffRenderer()
         except:
@@ -102,6 +106,7 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
 
 
     gaussians.training_setup(opt) #! from here all trainble parameters are set(e.g., flame_codes, xyz, scaling, dynamic_offset, opacity)
+    gaussians.set_training_stage(1)
     if checkpoint:
         (model_params, first_iter) = torch.load(checkpoint)
         gaussians.restore(model_params, opt)

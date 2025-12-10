@@ -58,7 +58,7 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
         else:
             n_shape = 300
             n_expr = 100
-
+        print("has trained")
         gaussians = FlameGaussianModel(dataset.sh_degree, dataset.sg_degree,brdf_dim=dataset.brdf_dim,
             brdf_mode=dataset.brdf_mode,
             brdf_envmap_res=dataset.brdf_envmap_res, disable_flame_static_offset= dataset.disable_flame_static_offset,
@@ -97,6 +97,13 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
 
     progress_bar = tqdm(range(first_iter, opt.iterations), desc="Training progress")
     first_iter += 1
+
+    for i, param_group in enumerate(gaussians.optimizer.param_groups):
+        print(f"Group {i}: {param_group['name']}")
+        for p in param_group['params']:
+            print("  ", p.shape, p.requires_grad)
+
+
 
     for iteration in range(first_iter, opt.iterations + 1):
 

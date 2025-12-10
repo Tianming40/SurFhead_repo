@@ -52,17 +52,15 @@ def brdf_training(dataset, opt, pipe, testing_iterations, saving_iterations, che
             n_shape = 300
             n_expr = 100
 
-        gaussians = FlameGaussianModel(
-            dataset.sh_degree, dataset.sg_degree,
-            dataset.disable_flame_static_offset, dataset.not_finetune_flame_params,
-            n_shape=n_shape, n_expr=n_expr,
-            train_kinematic=pipe.train_kinematic, DTF=pipe.DTF,
-            densification_type=opt.densification_type,
-            detach_eyeball_geometry=pipe.detach_eyeball_geometry,
-            brdf_dim=dataset.brdf_dim,
-            brdf_mode=dataset.brdf_mode,
-            brdf_envmap_res=dataset.brdf_envmap_res
-        )
+        gaussians = FlameGaussianModel(dataset.sh_degree, dataset.sg_degree, brdf_dim=dataset.brdf_dim,
+                                       brdf_mode=dataset.brdf_mode,
+                                       brdf_envmap_res=dataset.brdf_envmap_res,
+                                       disable_flame_static_offset=dataset.disable_flame_static_offset,
+                                       not_finetune_flame_params=dataset.not_finetune_flame_params, n_shape=n_shape,
+                                       n_expr=n_expr,
+                                       train_kinematic=pipe.train_kinematic, DTF=pipe.DTF,
+                                       densification_type=opt.densification_type,
+                                       detach_eyeball_geometry=pipe.detach_eyeball_geometry)
     else:
         gaussians = GaussianModel(dataset.sh_degree)
 
