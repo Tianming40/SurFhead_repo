@@ -70,7 +70,7 @@ def brdf_training(dataset, opt, pipe, testing_iterations, saving_iterations, che
     if checkpoint:
         print(f"Loading checkpoint from stage 1: {checkpoint}")
         (model_params, first_iter) = torch.load(checkpoint)
-        gaussians.restore_geometry(model_params, opt)  #
+        gaussians.restore_geometry(model_params, opt)  # to read and use the para From Stage 1 TODO
 
     gaussians.training_setup(opt)
 
@@ -94,30 +94,30 @@ def brdf_training(dataset, opt, pipe, testing_iterations, saving_iterations, che
 
     for iteration in range(1, opt.iterations + 1):
 
-        if network_gui.conn == None:
-            network_gui.try_connect()
-
-        while network_gui.conn != None:
-            try:
-                net_image = None
-                custom_cam, msg = network_gui.receive()
-                if custom_cam != None:
-                    # 网格选择
-                    if gaussians.binding != None:
-                        gaussians.select_mesh_by_timestep(custom_cam.timestep, msg.get('use_original_mesh', False))
-
-                    # BRDF 渲染
-                    if msg.get('show_splatting', True):
-                        net_image = render(custom_cam, gaussians, pipe, background,
-                                           msg.get('scaling_modifier', 1.0))["render"]
-
-                    network_gui.send(net_image, {'num_timesteps': gaussians.num_timesteps,
-                                                 'num_points': gaussians._xyz.shape[0]})
-                if msg.get('do_training', True) and (
-                        (iteration < int(opt.iterations)) or not msg.get('keep_alive', True)):
-                    break
-            except Exception as e:
-                network_gui.conn = None
+        # if network_gui.conn == None:
+        #     network_gui.try_connect()
+        #
+        # while network_gui.conn != None:
+        #     try:
+        #         net_image = None
+        #         custom_cam, msg = network_gui.receive()
+        #         if custom_cam != None:
+        #
+        #             if gaussians.binding != None:
+        #                 gaussians.select_mesh_by_timestep(custom_cam.timestep, msg.get('use_original_mesh', False))
+        #
+        #
+        #             if msg.get('show_splatting', True):
+        #                 net_image = render(custom_cam, gaussians, pipe, background,
+        #                                    msg.get('scaling_modifier', 1.0))["render"]
+        #
+        #             network_gui.send(net_image, {'num_timesteps': gaussians.num_timesteps,
+        #                                          'num_points': gaussians._xyz.shape[0]})
+        #         if msg.get('do_training', True) and (
+        #                 (iteration < int(opt.iterations)) or not msg.get('keep_alive', True)):
+        #             break
+        #     except Exception as e:
+        #         network_gui.conn = None
 
         iter_start.record()
 
@@ -132,6 +132,9 @@ def brdf_training(dataset, opt, pipe, testing_iterations, saving_iterations, che
 
         if gaussians.binding != None:
             gaussians.select_mesh_by_timestep(viewpoint_cam.timestep)
+
+        if pipe.brdf and gaussians.brdf_mode == "envmap":
+            gaussians.brdf_mlp.build_mips()
 
         render_pkg = brdf_render(viewpoint_cam, gaussians, pipe, background)
 
@@ -187,16 +190,15 @@ def fine_tune_training(dataset, opt, pipe, testing_iterations, saving_iterations
             n_shape = 300
             n_expr = 100
 
-        gaussians = FlameGaussianModel(
-            dataset.sh_degree, dataset.sg_degree,
-            dataset.disable_flame_static_offset, dataset.not_finetune_flame_params,
-            n_shape=n_shape, n_expr=n_expr,
-            train_kinematic=pipe.train_kinematic, DTF=pipe.DTF,
-            densification_type=opt.densification_type,
-            detach_eyeball_geometry=pipe.detach_eyeball_geometry,
-            brdf_mode=dataset.brdf_mode,
-            brdf_envmap_res=dataset.brdf_envmap_res
-        )
+        gaussians = FlameGaussianModel(dataset.sh_degree, dataset.sg_degree, brdf_dim=dataset.brdf_dim,
+                                       brdf_mode=dataset.brdf_mode,
+                                       brdf_envmap_res=dataset.brdf_envmap_res,
+                                       disable_flame_static_offset=dataset.disable_flame_static_offset,
+                                       not_finetune_flame_params=dataset.not_finetune_flame_params, n_shape=n_shape,
+                                       n_expr=n_expr,
+                                       train_kinematic=pipe.train_kinematic, DTF=pipe.DTF,
+                                       densification_type=opt.densification_type,
+                                       detach_eyeball_geometry=pipe.detach_eyeball_geometry)
     else:
         gaussians = GaussianModel(dataset.sh_degree, dataset.brdf_dim,
                                   dataset.brdf_mode, dataset.brdf_envmap_res)
@@ -233,48 +235,7 @@ def fine_tune_training(dataset, opt, pipe, testing_iterations, saving_iterations
 
     for iteration in range(first_iter, opt.iterations + 1):
 
-        if network_gui.conn == None:
-            network_gui.try_connect()
 
-        while network_gui.conn != None:
-            try:
-                net_image = None
-                custom_cam, msg = network_gui.receive()
-                if custom_cam != None:
-
-                    if gaussians.binding != None:
-                        gaussians.select_mesh_by_timestep(custom_cam.timestep, msg.get('use_original_mesh', False))
-
-
-                    if msg.get('show_splatting', True):
-                        net_image = render(custom_cam, gaussians, pipe, background,
-                                           msg.get('scaling_modifier', 1.0))["render"]
-
-
-                    if gaussians.binding != None and msg.get('show_mesh', False):
-                        try:
-                            mesh_renderer = NVDiffRenderer()
-                            out_dict = mesh_renderer.render_from_camera(gaussians.verts, gaussians.faces, custom_cam)
-                            rgba_mesh = out_dict['rgba'].squeeze(0).permute(2, 0, 1)
-                            rgb_mesh = rgba_mesh[:3, :, :]
-                            alpha_mesh = rgba_mesh[3:, :, :]
-                            mesh_opacity = msg.get('mesh_opacity', 0.5)
-
-                            if net_image is None:
-                                net_image = rgb_mesh
-                            else:
-                                net_image = rgb_mesh * alpha_mesh * mesh_opacity + net_image * (
-                                            alpha_mesh * (1 - mesh_opacity) + (1 - alpha_mesh))
-                        except:
-                            pass
-
-                    network_gui.send(net_image, {'num_timesteps': gaussians.num_timesteps,
-                                                 'num_points': gaussians._xyz.shape[0]})
-                if msg.get('do_training', True) and (
-                        (iteration < int(opt.iterations)) or not msg.get('keep_alive', True)):
-                    break
-            except Exception as e:
-                network_gui.conn = None
 
         iter_start.record()
 
@@ -337,6 +298,8 @@ def fine_tune_training(dataset, opt, pipe, testing_iterations, saving_iterations
             dist_loss = lambda_dist * (rend_dist).mean()
             losses['surfel_dist_loss'] = dist_loss
 
+
+        # TODO
         if hasattr(opt, 'lambda_material_smooth') and opt.lambda_material_smooth > 0:
             losses['material_smooth'] = compute_material_smoothness_loss(gaussians) * opt.lambda_material_smooth
 
@@ -679,9 +642,7 @@ def training_report(tb_writer, iteration, losses, elapsed, testing_iterations, s
                         try:
                             rend_alpha = render_pkg['surfel_rend_alpha']
                             rend_normal = render_pkg["surfel_rend_normal"] * 0.5 + 0.5
-                            surf_normal = (render_pkg["surfel_surf_normal"] * 0.5 + 0.5) * gt_mask.repeat(3, 1,
-                                                                                                          1).cuda + (
-                                                      1 - gt_mask.repeat(3, 1, 1).cuda())
+                            surf_normal = (render_pkg["surfel_surf_normal"] * 0.5 + 0.5) * gt_mask.repeat(3, 1,1).cuda + (1 - gt_mask.repeat(3, 1, 1).cuda())
                             tb_writer.add_images(config['name'] + "_{}/surfel_surfel_render_normal".format(vis_ct),
                                                  rend_normal[None], global_step=iteration)
                             tb_writer.add_images(config['name'] + "_{}/surfel_surfel_normal".format(vis_ct),

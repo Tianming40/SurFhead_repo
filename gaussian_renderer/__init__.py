@@ -319,7 +319,7 @@ def normalize_normal_inplace(normal, alpha):
 
 
 def brdf_render(viewpoint_camera, pc: Union[GaussianModel, FlameGaussianModel], pipe,
-                bg_color: torch.Tensor, scaling_modifier=1.0, override_color=None, specular_color=None, speed=False):
+                bg_color: torch.Tensor, scaling_modifier=1.0, override_color=None, speed=False):
     """
     Render the scene.
 
