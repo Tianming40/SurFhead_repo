@@ -423,9 +423,21 @@ class GaussianModel:
             num_pts = self.binding.shape[0]
             fused_point_cloud = torch.zeros((num_pts, 3)).float().cuda()
             fused_color = torch.tensor(np.random.random((num_pts, 3)) / 255.0).float().cuda()
-            features = torch.zeros((fused_color.shape[0], 3, (self.max_sh_degree + 1) ** 2)).float().cuda()
-            features[:, :3, 0] = fused_color
-            features[:, 3:, 1:] = 0.0
+            if not self.brdf:
+                features = torch.zeros((fused_color.shape[0], 3, (self.max_sh_degree + 1) ** 2)).float().cuda()
+                features[:, :3, 0] = fused_color
+                features[:, 3:, 1:] = 0.0
+            elif (self.brdf_mode == "envmap" and self.brdf_dim == 0):
+                features = torch.zeros((fused_color.shape[0], self.brdf_dim + 3)).float().cuda()
+                features[:, :3] = fused_color
+                features[:, 3:] = 0.0
+            elif self.brdf_mode == "envmap" and self.brdf_dim > 0:
+                features = torch.zeros((fused_color.shape[0], 3)).float().cuda()
+                features[:, :3] = fused_color
+                features[:, 3:] = 0.0
+                features_rest = torch.zeros((fused_color.shape[0], 3, (self.brdf_dim + 1) ** 2)).float().cuda()
+            else:
+                raise NotImplementedError
         else:
             fused_point_cloud = torch.tensor(np.asarray(pcd.points)).float().cuda()
             if not self.brdf:
@@ -446,6 +458,7 @@ class GaussianModel:
                 features_rest = torch.zeros((fused_color.shape[0], 3, (self.brdf_dim + 1) ** 2)).float().cuda()
             else:
                 raise NotImplementedError
+        self._xyz = nn.Parameter(fused_point_cloud.requires_grad_(True))
 
 
 
