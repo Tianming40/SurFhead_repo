@@ -393,16 +393,16 @@ class FlameGaussianModel(GaussianModel):
 
         if stage == 1:
             self.set_requires_grad("specular", False)
-            self.brdf_mlp.requires_grad_(False)
+            # self.brdf_mlp.base.requires_grad(False)
 
 
-            self.set_requires_grad("xyz", True)
-            self.set_requires_grad("scaling", True)
-            self.set_requires_grad("rotation", True)
-            self.set_requires_grad("opacity", True)
-            self.set_requires_grad("features_dc", True)
-            self.set_requires_grad("features_rest", True)
-            self.set_requires_grad("features_sg", True)
+            # self.set_requires_grad("xyz", True)
+            # self.set_requires_grad("scaling", True)
+            # self.set_requires_grad("rotation", True)
+            # self.set_requires_grad("opacity", True)
+            # self.set_requires_grad("features_dc", True)
+            # self.set_requires_grad("features_rest", True)
+            # self.set_requires_grad("features_sg", True)
 
         elif stage == 2:
 
@@ -442,3 +442,50 @@ class FlameGaussianModel(GaussianModel):
             self.set_requires_grad("features_rest", True)
             self.set_requires_grad("features_sg", True)
 
+    def build_param_groups(self):
+        """Split parameters into named groups."""
+
+        param_groups = {}
+
+        # Geometry parameters
+        param_groups["geometry"] = [
+            self._xyz,
+            self._scaling,
+            self._rotation,
+            self.opacity,
+            self._features_dc,
+            self._features_rest,
+        ]
+
+        # BRDF parameters (diffuse, roughness, specular, etc.)
+        if hasattr(self, "brdf_mlp"):
+            param_groups["brdf"] = list(self.brdf_mlp.parameters())
+        else:
+            param_groups["brdf"] = []
+
+        # Envmap parameters (SG or MLP; depends on implementation)
+        if hasattr(self, "envmap"):
+            param_groups["envmap"] = [self.envmap]
+        else:
+            param_groups["envmap"] = []
+
+        # FLAME parameters (optional)
+        flame_params = []
+        if hasattr(self, "flame_shape"):
+            flame_params += [self.flame_shape]
+        if hasattr(self, "flame_expr"):
+            flame_params += [self.flame_expr]
+        param_groups["flame"] = flame_params
+
+        return param_groups
+
+    def freeze_all(self):
+        for gname, params in self.param_groups.items():
+            for p in params:
+                p.requires_grad = False
+
+    def unfreeze(self, groups):
+        """groups = list of names: ["geometry"], ["brdf","envmap"], etc."""
+        for name in groups:
+            for p in self.param_groups[name]:
+                p.requires_grad = True

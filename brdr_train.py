@@ -40,7 +40,7 @@ except ImportError:
     TENSORBOARD_FOUND = False
 
 
-def brdf_training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoint_iterations, checkpoint=None):
+def brdf_training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoint_iterations, checkpoint=True):
     tb_writer = prepare_output_and_logger(dataset)
 
 
@@ -52,7 +52,7 @@ def brdf_training(dataset, opt, pipe, testing_iterations, saving_iterations, che
             n_shape = 300
             n_expr = 100
 
-        gaussians = FlameGaussianModel(dataset.sh_degree, dataset.sg_degree, brdf_dim=dataset.brdf_dim,
+        gaussians = FlameGaussianModel(sh_degree=-1, sg_degree=dataset.sg_degree, brdf_dim=3,
                                        brdf_mode=dataset.brdf_mode,
                                        brdf_envmap_res=dataset.brdf_envmap_res,
                                        disable_flame_static_offset=dataset.disable_flame_static_offset,
@@ -64,18 +64,22 @@ def brdf_training(dataset, opt, pipe, testing_iterations, saving_iterations, che
     else:
         gaussians = GaussianModel(dataset.sh_degree)
 
-    scene = Scene(dataset, gaussians)
+    scene = Scene(dataset, gaussians,load_iteration=600000)
 
 
     if checkpoint:
         print(f"Loading checkpoint from stage 1: {checkpoint}")
-        (model_params, first_iter) = torch.load(checkpoint)
-        gaussians.restore_geometry(model_params, opt)  # to read and use the para From Stage 1 TODO
+          # to read and use the para From Stage 1 TODO
 
     gaussians.training_setup(opt)
 
 
     gaussians.set_training_stage(2)
+
+    for i, param_group in enumerate(gaussians.optimizer.param_groups):
+        print(f"Group {i}: {param_group['name']}")
+        for p in param_group['params']:
+            print("  ", p.shape, p.requires_grad)
 
     bg_color = [1, 1, 1] if dataset.white_background else [0, 0, 0]
     background = torch.tensor(bg_color, dtype=torch.float32, device="cuda")
@@ -90,9 +94,9 @@ def brdf_training(dataset, opt, pipe, testing_iterations, saving_iterations, che
     iter_camera_train = iter(loader_camera_train)
 
     ema_loss_for_log = 0.0
-    progress_bar = tqdm(range(opt.iterations), desc="BRDF Training progress")
+    progress_bar = tqdm(range(opt.brdf_iterations), desc="BRDF Training progress")
 
-    for iteration in range(1, opt.iterations + 1):
+    for iteration in range(1, opt.brdf_iterations + 1):
 
         # if network_gui.conn == None:
         #     network_gui.try_connect()
@@ -174,6 +178,11 @@ def brdf_training(dataset, opt, pipe, testing_iterations, saving_iterations, che
             if iteration < opt.iterations:
                 gaussians.optimizer.step()
                 gaussians.optimizer.zero_grad(set_to_none=True)
+
+            if (iteration in checkpoint_iterations):
+                print("[ITER {}] Saving Checkpoint".format(iteration))
+                torch.save((gaussians.capture(), iteration), scene.model_path + "/chkpnt" + str(iteration) + ".pth")
+
 
     return gaussians
 
@@ -711,7 +720,7 @@ if __name__ == "__main__":
     op = OptimizationParams(parser)
     pp = PipelineParams(parser)
 
-    parser.add_argument('--training_stage', type=int, default=1, choices=[1, 2, 3],
+    parser.add_argument('--training_stage_from', type=int, default=2, choices=[1, 2, 3],
                         help="1: Geometry training, 2: BRDF initial, 3: Fine-tuning")
     parser.add_argument('--stage1_checkpoint', type=str, default=None,
                         help="Checkpoint for stage 1 to continue training")
@@ -719,7 +728,7 @@ if __name__ == "__main__":
                         help="Checkpoint for stage 2 to continue training")
     parser.add_argument('--stage1_iterations', type=int, default=30000,
                         help="Iterations for stage 1")
-    parser.add_argument('--stage2_iterations', type=int, default=20000,
+    parser.add_argument('--stage2_iterations', type=int, default=60000,
                         help="Iterations for stage 2")
     parser.add_argument('--stage3_iterations', type=int, default=10000,
                         help="Iterations for stage 3")
@@ -739,15 +748,17 @@ if __name__ == "__main__":
     parser.add_argument("--checkpoint_iterations", nargs="+", type=int, default=[])
     parser.add_argument("--start_checkpoint", type=str, default=None)
     args = parser.parse_args(sys.argv[1:])
-    if args.training_stage == 1:
-        args.iterations = args.stage1_iterations
-    elif args.training_stage == 2:
-        args.iterations = args.stage2_iterations
+    if args.training_stage_from == 1:
+        args.iterations = args.iterations
+
+    elif args.training_stage_from == 2:
+        args.iterations = args.brdf_iterations
+        # args.source_path = args.relighting_path
     else:  # stage 3
         args.iterations = args.stage3_iterations
 
-    if args.interval > args.iterations:
-        args.interval = args.iterations // 5
+    if args.interval > args.brdf_iterations:
+        args.interval = args.brdf_iterations // 5
 
     if len(args.test_iterations) == 0:
         args.test_iterations.extend(list(range(args.interval, args.iterations + 1, args.interval)))
@@ -757,72 +768,71 @@ if __name__ == "__main__":
         args.checkpoint_iterations.extend(list(range(args.interval, args.iterations + 1, args.interval)))
 
     print("Optimizing " + args.model_path)
-    print(f"Training Stage: {args.training_stage}")
+    print(f"Training Stage: {args.training_stage_from}")
 
     # Initialize system state (RNG)
     safe_state(args.quiet)
 
-    # Print parameters
-    print("\n" + "=" * 80)
-    print("TRAINING CONFIGURATION")
-    print("=" * 80)
-
-    model_args = lp.extract(args)
-    opt_args = op.extract(args)
-    pipe_args = pp.extract(args)
-
-    print("\n=== Model Parameters ===")
-    for attr in sorted(dir(model_args)):
-        if not attr.startswith('_'):
-            value = getattr(model_args, attr)
-            print(f"  {attr:30} : {value}")
-
-    print("\n=== Optimization Parameters ===")
-    for attr in sorted(dir(opt_args)):
-        if not attr.startswith('_'):
-            value = getattr(opt_args, attr)
-            print(f"  {attr:30} : {value}")
-
-    print("\n=== Pipeline Parameters ===")
-    for attr in sorted(dir(pipe_args)):
-        if not attr.startswith('_'):
-            value = getattr(pipe_args, attr)
-            print(f"  {attr:30} : {value}")
-
-    print("\n=== Stage Parameters ===")
-    stage_params = ['training_stage', 'stage1_iterations', 'stage2_iterations', 'stage3_iterations',
-                    'stage1_checkpoint', 'stage2_checkpoint']
-    for param in stage_params:
-        if hasattr(args, param):
-            value = getattr(args, param)
-            print(f"  {param:30} : {value}")
-
-    print("\n=== Other Parameters ===")
-    other_params = ['ip', 'port', 'debug_from', 'detect_anomaly', 'interval',
-                    'test_iterations', 'save_iterations', 'quiet', 'checkpoint_iterations', 'start_checkpoint']
-    for param in other_params:
-        if hasattr(args, param):
-            value = getattr(args, param)
-            print(f"  {param:30} : {value}")
-
-    print("=" * 80 + "\n")
+    # # Print parameters
+    # print("\n" + "=" * 80)
+    # print("TRAINING CONFIGURATION")
+    # print("=" * 80)
+    #
+    # model_args = lp.extract(args)
+    # opt_args = op.extract(args)
+    # pipe_args = pp.extract(args)
+    #
+    # print("\n=== Model Parameters ===")
+    # for attr in sorted(dir(model_args)):
+    #     if not attr.startswith('_'):
+    #         value = getattr(model_args, attr)
+    #         print(f"  {attr:30} : {value}")
+    #
+    # print("\n=== Optimization Parameters ===")
+    # for attr in sorted(dir(opt_args)):
+    #     if not attr.startswith('_'):
+    #         value = getattr(opt_args, attr)
+    #         print(f"  {attr:30} : {value}")
+    #
+    # print("\n=== Pipeline Parameters ===")
+    # for attr in sorted(dir(pipe_args)):
+    #     if not attr.startswith('_'):
+    #         value = getattr(pipe_args, attr)
+    #         print(f"  {attr:30} : {value}")
+    #
+    # print("\n=== Stage Parameters ===")
+    # stage_params = ['training_stage', 'stage1_iterations', 'stage2_iterations', 'stage3_iterations',
+    #                 'stage1_checkpoint', 'stage2_checkpoint']
+    # for param in stage_params:
+    #     if hasattr(args, param):
+    #         value = getattr(args, param)
+    #         print(f"  {param:30} : {value}")
+    #
+    # print("\n=== Other Parameters ===")
+    # other_params = ['ip', 'port', 'debug_from', 'detect_anomaly', 'interval',
+    #                 'test_iterations', 'save_iterations', 'quiet', 'checkpoint_iterations', 'start_checkpoint']
+    # for param in other_params:
+    #     if hasattr(args, param):
+    #         value = getattr(args, param)
+    #         print(f"  {param:30} : {value}")
+    #
+    # print("=" * 80 + "\n")
 
     # Start GUI server, configure and run training
     network_gui.init(args.ip, args.port)
     torch.autograd.set_detect_anomaly(args.detect_anomaly)
 
-    if args.training_stage == 1:
+    if args.training_stage_from == 1:
         print("=== Starting Stage 1: Geometry Training ===")
         training(lp.extract(args), op.extract(args), pp.extract(args),
                  args.test_iterations, args.save_iterations, args.checkpoint_iterations,
                  args.stage1_checkpoint, args.debug_from)
 
-    elif args.training_stage == 2:
+    elif args.training_stage_from == 2:
         print("=== Starting Stage 2: BRDF Training ===")
-        brdf_training(lp.extract(args), op.extract(args), pp.extract(args),
-                      args.test_iterations, args.save_iterations)
+        brdf_training(lp.extract(args), op.extract(args), pp.extract(args), args.test_iterations, args.save_iterations, args.checkpoint_iterations, args.start_checkpoint)
 
-    elif args.training_stage == 3:
+    elif args.training_stage_from == 3:
         print("=== Starting Stage 3: Fine-tuning ===")
         fine_tune_training(lp.extract(args), op.extract(args), pp.extract(args),
                            args.test_iterations, args.save_iterations, args.checkpoint_iterations,

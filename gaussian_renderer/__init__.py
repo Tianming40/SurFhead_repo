@@ -404,7 +404,7 @@ def brdf_render(viewpoint_camera, pc: Union[GaussianModel, FlameGaussianModel], 
             delta_normal_norm = None
             if pipe.brdf_mode == "envmap":
                 gb_pos = pc_position  # (N, 3)
-                view_pos = viewpoint_camera.camera_center.repeat(pc.get_opacity.shape[0], 1)  # (N, 3)
+                view_pos = viewpoint_camera.camera_center.to(pc_position.device).repeat(pc.get_opacity.shape[0], 1)  # (N, 3)
 
                 diffuse = pc.get_diffuse  # (N, 3)
                 specular = pc.get_specular  # (N, 3)
@@ -420,7 +420,7 @@ def brdf_render(viewpoint_camera, pc: Union[GaussianModel, FlameGaussianModel], 
 
                 if hasattr(pc, 'brdf_dim') and pc.brdf_dim > 0:
                     shs_view = pc.get_brdf_features.view(-1, 3, (pc.brdf_dim + 1) ** 2)
-                    dir_pp = (pc.get_xyz - viewpoint_camera.camera_center.repeat(pc.get_opacity.shape[0], 1))
+                    dir_pp = (pc.get_xyz - viewpoint_camera.camera_center.to(pc_position.device).repeat(pc.get_opacity.shape[0], 1))
                     dir_pp_normalized = dir_pp / dir_pp.norm(dim=1, keepdim=True)
                     sh2rgb = eval_sh(pc.brdf_dim, shs_view, dir_pp_normalized)
                     color_delta = sh2rgb

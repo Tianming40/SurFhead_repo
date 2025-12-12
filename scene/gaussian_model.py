@@ -495,8 +495,7 @@ class GaussianModel:
             elif self.brdf_mode == "envmap":
                 self._features_rest = nn.Parameter(features_rest.contiguous().requires_grad_(True))
             specular_len = 3
-            self._specular = nn.Parameter(
-                torch.zeros((fused_point_cloud.shape[0], specular_len), device="cuda").requires_grad_(True))
+            self._specular = nn.Parameter(torch.zeros((fused_point_cloud.shape[0], specular_len), device="cuda").requires_grad_(True))
 
 
         self._scaling = nn.Parameter(scales.requires_grad_(True))
@@ -629,7 +628,6 @@ class GaussianModel:
             for i in range(self._features_rest.shape[1]*self._features_rest.shape[2]):
                 l.append('f_rest_{}'.format(i))
         else:
-            l.extend(['nx2', 'ny2', 'nz2'])
             for i in range(self._features_dc.shape[1]):
                 l.append('f_dc_{}'.format(i))
             if viewer_fmt:
@@ -702,6 +700,11 @@ class GaussianModel:
         if self.brdf and not viewer_fmt:
             attributes = np.concatenate((attributes, specular), axis=1)
 
+        print("specular shape:", specular.shape)
+        print("f_dc shape:", f_dc.shape)
+        print("f_rest shape:", f_rest.shape)
+        print("dtype_full len:", len(dtype_full))
+        print("attributes shape:", attributes.shape)
         # breakpoint()
         elements[:] = list(map(tuple, attributes))
         el = PlyElement.describe(elements, 'vertex')
@@ -786,20 +789,26 @@ class GaussianModel:
             for idx, attr_name in enumerate(specular_names):
                 specular[:, idx] = np.asarray(plydata.elements[0][attr_name])
 
+
+
         sg_names = [p.name for p in plydata.elements[0].properties if p.name.startswith("f_sg_")]
         f_sgs = np.zeros((xyz.shape[0], len(sg_names)))
         for idx, attr_name in enumerate(sg_names):
             f_sgs[:, idx] = np.asarray(plydata.elements[0][attr_name])
 
         self._xyz = nn.Parameter(torch.tensor(xyz, dtype=torch.float, device="cuda").requires_grad_(True))
-        self._features_dc = nn.Parameter(torch.tensor(features_dc, dtype=torch.float, device="cuda").transpose(1, 2).contiguous().requires_grad_(True))
-        self._features_rest = nn.Parameter(torch.tensor(features_extra, dtype=torch.float, device="cuda").transpose(1, 2).contiguous().requires_grad_(True))
+        self._features_dc = nn.Parameter(torch.tensor(features_dc, dtype=torch.float, device="cuda").transpose(1, 2).contiguous().requires_grad_(True)) if not self.brdf else nn.Parameter(torch.tensor(features_dc, dtype=torch.float, device="cuda").requires_grad_(True))
+        self._features_rest = nn.Parameter(torch.tensor(features_extra, dtype=torch.float, device="cuda").transpose(1, 2).contiguous().requires_grad_(True)) if not ((self.brdf and self.brdf_mode=="envmap")) else nn.Parameter(torch.tensor(features_extra, dtype=torch.float, device="cuda").requires_grad_(True))
+
         self._opacity = nn.Parameter(torch.tensor(opacities, dtype=torch.float, device="cuda").requires_grad_(True))
         self._scaling = nn.Parameter(torch.tensor(scales, dtype=torch.float, device="cuda").requires_grad_(True))
         self._rotation = nn.Parameter(torch.tensor(rots, dtype=torch.float, device="cuda").requires_grad_(True))
         self._features_sg = nn.Parameter(torch.tensor(f_sgs, dtype=torch.float, device="cuda").requires_grad_(True))
         if self.brdf:
             self._specular = nn.Parameter(torch.tensor(specular, dtype=torch.float, device="cuda").requires_grad_(True))
+            if specular is not None and (specular.size == 0 or specular.shape[-1] == 0):
+                specular_len = 3
+                self._specular = nn.Parameter(torch.zeros((features_dc.shape[0], specular_len), device="cuda").requires_grad_(True))
 
 
         self.active_sh_degree = self.max_sh_degree
