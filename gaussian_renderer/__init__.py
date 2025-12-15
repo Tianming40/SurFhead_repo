@@ -19,7 +19,7 @@ from utils.mesh_utils import world_to_camera, compute_face_normals
 from utils.loss_utils import hann_window
 from utils.general_utils import build_rotation
 from utils.point_utils import depth_to_normal
-from submodules.nvdiffrec.render import light
+from submodules.nvdiffrec.render.light import extract_env_map
 
 
 def render(viewpoint_camera, pc : Union[GaussianModel, FlameGaussianModel], pipe, 
@@ -319,7 +319,7 @@ def normalize_normal_inplace(normal, alpha):
 
 
 def brdf_render(viewpoint_camera, pc: Union[GaussianModel, FlameGaussianModel], pipe,
-                bg_color: torch.Tensor, scaling_modifier=1.0, override_color=None, speed=False):
+                bg_color: torch.Tensor, scaling_modifier=1.0, override_color=None, speed=False, debug=False):
     """
     Render the scene.
 
