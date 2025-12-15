@@ -416,6 +416,7 @@ class FlameGaussianModel(GaussianModel):
             self.set_requires_grad("rotation", False)
             self.set_requires_grad("opacity", False)
             self.set_requires_grad("features_sg", False)
+            self.set_requires_grad("blend_weight", False)
 
             self.flame_param['rotation'].requires_grad = False
             self.flame_param['neck_pose'].requires_grad = False
