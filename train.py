@@ -19,7 +19,7 @@ from utils.loss_utils import l1_loss, ssim, laplacian_loss, laplacian_loss_U, ge
 from gaussian_renderer import render, network_gui
 from mesh_renderer import NVDiffRenderer
 import sys
-from scene import Scene, GaussianModel, FlameGaussianModel, SpecularModel
+from scene import Scene, GaussianModel, FlameGaussianModel, SpecularModel, RelightingScene
 from utils.general_utils import safe_state, colormap
 import uuid
 from tqdm import tqdm

@@ -48,7 +48,7 @@ class ModelParams(ParamGroup):
     def __init__(self, parser, sentinel=False):
         self.sh_degree = 3
         self.sg_degree = 24
-        self._source_path = "/home/tzhang/nersemble_data/074/cluster/ikarus/sqian/project/dynamic-head-avatars/code/multi-view-head-tracker/export/074_EMO-1_v16_DS2-0.5x_lmkSTAR_teethV3_SMOOTH_offsetS_whiteBg_maskBelowLine"  # Path to the source data set
+        self._source_path = "/home/tzhang/sythetic_data"  # Path to the source data set
         self.relighting_path = "Path/TO/relightingpath"
         self._target_path = ""  # Path to the target data set for pose and expression transfer
         self._model_path = "./output"  # Path to the folder to save trained models
@@ -108,7 +108,7 @@ class OptimizationParams(ParamGroup):
     def __init__(self, parser):
         # 3D Gaussians
         self.iterations = 600_000  # 30_000 (original)
-        self.brdf_iterations = 20000
+        self.brdf_iterations = 300000
         self.position_lr_init = 0.005  # (scaled up according to mean triangle scale)  #0.00016 (original)#! *1/0.032
         self.position_lr_final = 0.00005  # (scaled up according to mean triangle scale) # 0.0000016 (original)
         self.position_lr_delay_mult = 0.01

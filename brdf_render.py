@@ -10,7 +10,7 @@
 #
 
 import torch
-from scene import Scene
+from scene import Scene, RelightingScene
 import os
 from tqdm import tqdm
 from os import makedirs
@@ -96,7 +96,7 @@ def render_sets(dataset: ModelParams, iteration: int, pipeline: PipelineParams, 
                                        not_finetune_flame_params=dataset.not_finetune_flame_params, n_shape=n_shape,
                                        n_expr=n_expr,
                                        train_kinematic=pipeline.train_kinematic, DTF=pipeline.DTF)
-        scene = Scene(dataset, gaussians, load_iteration=iteration, shuffle=False)
+        scene = RelightingScene(dataset, gaussians, load_iteration=iteration, shuffle=False)
 
         bg_color = [1, 1, 1] if dataset.white_background else [0, 0, 0]
         background = torch.tensor(bg_color, dtype=torch.float32, device="cuda")
@@ -119,6 +119,7 @@ if __name__ == "__main__":
     model = ModelParams(parser, sentinel=False)
     pipeline = PipelineParams(parser)
     parser.add_argument("--iteration", default=-1, type=int)
+    parser.add_argument("--brdf_iterations", default=20000, type=int)
     parser.add_argument("--skip_train", action="store_true")
     parser.add_argument("--skip_test", action="store_true")
     parser.add_argument("--quiet", action="store_true")

@@ -20,7 +20,7 @@ from utils.loss_utils import l1_loss, ssim, laplacian_loss, laplacian_loss_U, ge
 from gaussian_renderer import render, network_gui, brdf_render
 from mesh_renderer import NVDiffRenderer
 import sys
-from scene import Scene, GaussianModel, FlameGaussianModel, SpecularModel
+from scene import Scene, RelightingScene, GaussianModel, FlameGaussianModel, SpecularModel
 from utils.general_utils import safe_state, colormap
 import uuid
 from tqdm import tqdm
@@ -52,7 +52,7 @@ def brdf_training(dataset, opt, pipe, testing_iterations, saving_iterations, che
             n_shape = 300
             n_expr = 100
 
-        gaussians = FlameGaussianModel(sh_degree=-1, sg_degree=dataset.sg_degree, brdf_dim=3,
+        gaussians = FlameGaussianModel(sh_degree=-1, sg_degree=dataset.sg_degree, brdf_dim=0,
                                        brdf_mode=dataset.brdf_mode,
                                        brdf_envmap_res=dataset.brdf_envmap_res,
                                        disable_flame_static_offset=dataset.disable_flame_static_offset,
@@ -64,7 +64,7 @@ def brdf_training(dataset, opt, pipe, testing_iterations, saving_iterations, che
     else:
         gaussians = GaussianModel(dataset.sh_degree)
 
-    scene = Scene(dataset, gaussians,load_iteration=600000)
+    scene = RelightingScene(dataset, gaussians,load_iteration=600000)
 
 
     if checkpoint:
