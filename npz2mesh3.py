@@ -92,7 +92,7 @@ def create_light():
     env_light.build_mips()
 
     return env_light
-def nvdiffrecrender(gaussians, camera_info, timestep, total_frame_num, use_test_camera=False, bg_rotation= False, white_bg = False):
+def nvdiffrecrender(gaussians, camera_info, timestep, total_frame_num, use_test_camera=False, bg_rotation= False, white_bg = True):
 
     if use_test_camera:
         test_camer(camera_info)
@@ -425,7 +425,7 @@ def nvdiffrecrender(gaussians, camera_info, timestep, total_frame_num, use_test_
         plotter.camera_position = [camera_pos, focal_point, up_vector]
         plotter.camera.view_angle = np.degrees(camera_info.FoVy)
         # plotter.camera.view_angle = np.degrees(1.0)
-        plotter.add_text("total", font_size=16, color="black")
+        plotter.add_text("total", font_size=8, color="black")
         pic_path = os.path.join(total_dir, f"{picture_name}_total.png")
         plotter.screenshot(pic_path)
 
@@ -459,7 +459,7 @@ def nvdiffrecrender(gaussians, camera_info, timestep, total_frame_num, use_test_
         plotter.camera_position = [camera_pos, focal_point, up_vector]
         plotter.camera.view_angle = np.degrees(camera_info.FoVy)
         # plotter.camera.view_angle = np.degrees(1.0)
-        plotter.add_text("diffuse_only", font_size=16, color="black")
+        plotter.add_text("diffuse_only", font_size=8, color="black")
 
         pic_path = os.path.join(diffuse_dir, f"{picture_name}_diffuse.png")
         plotter.screenshot(pic_path)
@@ -495,7 +495,7 @@ def nvdiffrecrender(gaussians, camera_info, timestep, total_frame_num, use_test_
         plotter.camera_position = [camera_pos, focal_point, up_vector]
         plotter.camera.view_angle = np.degrees(camera_info.FoVy)
         # plotter.camera.view_angle = np.degrees(1.0)
-        plotter.add_text("specular_only", font_size=16, color="black")
+        plotter.add_text("specular_only", font_size=8, color="black")
         pic_path = os.path.join(specular_dir, f"{picture_name}_specular.png")
         plotter.screenshot(pic_path)
 
