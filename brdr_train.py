@@ -832,11 +832,11 @@ if __name__ == "__main__":
         print("=== Starting Stage 2: BRDF Training ===")
         brdf_training(lp.extract(args), op.extract(args), pp.extract(args), args.test_iterations, args.save_iterations, args.checkpoint_iterations, args.start_checkpoint)
 
-    elif args.training_stage_from == 3:
-        print("=== Starting Stage 3: Fine-tuning ===")
-        fine_tune_training(lp.extract(args), op.extract(args), pp.extract(args),
-                           args.test_iterations, args.save_iterations, args.checkpoint_iterations,
-                           args.stage2_checkpoint, args.debug_from)
+    # elif args.training_stage_from == 3:
+    #     print("=== Starting Stage 3: Fine-tuning ===")
+    #     fine_tune_training(lp.extract(args), op.extract(args), pp.extract(args),
+    #                        args.test_iterations, args.save_iterations, args.checkpoint_iterations,
+    #                        args.stage2_checkpoint, args.debug_from)
 
     # All done
     print("\nTraining complete.")

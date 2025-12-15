@@ -409,7 +409,7 @@ class FlameGaussianModel(GaussianModel):
             self.set_requires_grad("specular", True)
             self.set_requires_grad("features_dc", True)
             self.set_requires_grad("features_rest", True)
-            self.brdf_mlp.requires_grad_(True)
+            self.brdf_mlp.requires_grad_(False)
 
             self.set_requires_grad("xyz", False)
             self.set_requires_grad("scaling", False)
