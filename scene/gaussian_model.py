@@ -1207,4 +1207,6 @@ class GaussianModel:
             # print(self.tight_visibility_mask.sum(),'SUM')
 
     def set_requires_grad(self, attrib_name, state: bool):
-        getattr(self, f"_{attrib_name}").requires_grad = state
+        for name in (f"_{attrib_name}", attrib_name):
+            if hasattr(self, name):
+                getattr(self, name).requires_grad = state
