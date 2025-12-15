@@ -26,7 +26,7 @@ def remove_total_from_filenames(folder_path):
             continue
 
         # If filename contains '_total'
-        if '_total' in filename:
+        if '_diffuse' in filename:
             # Remove '_total'
             new_filename = filename.replace('_diffuse', '')
             new_path = os.path.join(folder_path, new_filename)
