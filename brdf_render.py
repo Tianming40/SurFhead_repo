@@ -116,7 +116,7 @@ def render_sets(dataset: ModelParams, iteration: int, pipeline: PipelineParams, 
 if __name__ == "__main__":
     # Set up command line argument parser
     parser = ArgumentParser(description="Testing script parameters")
-    model = ModelParams(parser, sentinel=False)
+    model = ModelParams(parser, sentinel=True)
     pipeline = PipelineParams(parser)
     parser.add_argument("--iteration", default=-1, type=int)
     parser.add_argument("--brdf_iterations", default=20000, type=int)
