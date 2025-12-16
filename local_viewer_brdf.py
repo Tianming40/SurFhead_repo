@@ -45,6 +45,7 @@ class PipelineConfig:
     detach_teeth_geometry = False
     amplify_teeth_grad = False
     detach_boundary = False
+    brdf = True
 
 
 @dataclass
