@@ -110,7 +110,9 @@ class LocalViewer(Mini3DViewer):
         # train_config = self.load_training_config(config_path)
 
         if motion_path.exists():
-            self.gaussians = FlameGaussianModel(self.cfg.sh_degree, sg_degree=24)
+            self.gaussians = FlameGaussianModel(sh_degree=3, sg_degree=24, brdf_dim=-1,
+                                       brdf_mode="envmap",
+                                       brdf_envmap_res=64)
         else:
             self.gaussians = GaussianModel(self.cfg.sh_degree, sg_degree=24)
 
