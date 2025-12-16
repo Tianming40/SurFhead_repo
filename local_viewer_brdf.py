@@ -134,8 +134,8 @@ class LocalViewer(Mini3DViewer):
                                         disable_fid=unselected_fid)
             else:
                 raise FileNotFoundError(f'{self.cfg.point_path} does not exist.')
-        if pipe.brdf and gaussians.brdf_mode == "envmap":
-            gaussians.brdf_mlp.build_mips()
+        if self.cfg.pipeline.brdf and self.cfg.pipeline.brdf_mode == "envmap":
+            self.gaussians.brdf_mlp.build_mips()
 
     def refresh_stat(self):
         if self.last_time_fresh is not None:
