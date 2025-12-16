@@ -23,7 +23,7 @@ import matplotlib
 
 from utils.viewer_utils import Mini3DViewer, Mini3DViewerConfig
 from gaussian_renderer import GaussianModel, FlameGaussianModel
-from gaussian_renderer import render
+from gaussian_renderer import render, brdf_render
 from mesh_renderer import NVDiffRenderer
 from utils.image_utils import apply_depth_colormap
 from utils.graphics_utils import getWorld2View2, getProjectionMatrix, fov2focal, get_rays
@@ -807,7 +807,7 @@ class LocalViewer(Mini3DViewer):
                     # rgb
                     # rgb_splatting = render(cam, self.gaussians, self.cfg.pipeline, torch.tensor(self.cfg.background_color).cuda(), scaling_modifier=dpg.get_value("_slider_scaling_modifier"))["render"].permute(1, 2, 0).contiguous()
                     rgb_splatting = \
-                    render(cam, self.gaussians, self.cfg.pipeline, torch.tensor(self.cfg.background_color).cuda(),
+                    brdf_render(cam, self.gaussians, self.cfg.pipeline, torch.tensor(self.cfg.background_color).cuda(),
                            scaling_modifier=dpg.get_value("_slider_scaling_modifier"),
                            )["render"].permute(1, 2, 0).contiguous()
                     # opacity
@@ -819,7 +819,7 @@ class LocalViewer(Mini3DViewer):
                     # rgb
                     # rgb_opacity = render_alpha(cam, self.gaussians, self.cfg.pipeline, torch.tensor(self.cfg.background_color).cuda(), scaling_modifier=dpg.get_value("_slider_scaling_modifier"))["render"].permute(1, 2, 0).contiguous()
                     rgb_opacity = \
-                    render(cam, self.gaussians, self.cfg.pipeline, torch.tensor(self.cfg.background_color).cuda(),
+                    brdf_render(cam, self.gaussians, self.cfg.pipeline, torch.tensor(self.cfg.background_color).cuda(),
                            scaling_modifier=dpg.get_value("_slider_scaling_modifier"),
                            )["render"].permute(1, 2, 0).contiguous()
 
@@ -827,7 +827,7 @@ class LocalViewer(Mini3DViewer):
                     # depth
                     # rgb_depth = render(cam, self.gaussians, self.cfg.pipeline, torch.tensor(self.cfg.background_color).cuda(), scaling_modifier=dpg.get_value("_slider_scaling_modifier"), return_depth = True)["render_depth"]
                     rgb_depth = \
-                    render(cam, self.gaussians, self.cfg.pipeline, torch.tensor(self.cfg.background_color).cuda(),
+                    brdf_render(cam, self.gaussians, self.cfg.pipeline, torch.tensor(self.cfg.background_color).cuda(),
                            scaling_modifier=dpg.get_value("_slider_scaling_modifier"),
                            )["surfel_surf_depth"]
                     # breakpoint()
@@ -838,7 +838,7 @@ class LocalViewer(Mini3DViewer):
                     # normal_short
                     # rgb_normal = render(cam, self.gaussians, self.cfg.pipeline, torch.tensor(self.cfg.background_color).cuda(), scaling_modifier=dpg.get_value("_slider_scaling_modifier"), return_normal = True)["render_normal"].permute(1, 2, 0).contiguous()
                     rgb_normal = \
-                    render(cam, self.gaussians, self.cfg.pipeline, torch.tensor(self.cfg.background_color).cuda(),
+                    brdf_render(cam, self.gaussians, self.cfg.pipeline, torch.tensor(self.cfg.background_color).cuda(),
                            scaling_modifier=dpg.get_value("_slider_scaling_modifier"),
                            )["surfel_rend_normal"].permute(1, 2, 0).contiguous()
                     rgb_normal = 0.5 + (0.5 * rgb_normal)
@@ -847,7 +847,7 @@ class LocalViewer(Mini3DViewer):
                     # normal_neigh
                     # rgb_neigh_normal = render(cam, self.gaussians, self.cfg.pipeline, torch.tensor(self.cfg.background_color).cuda(), scaling_modifier=dpg.get_value("_slider_scaling_modifier"), return_neigh_normal_viewer = True)["render_neigh_normal"].permute(1, 2, 0).contiguous()
                     rgb_neigh_normal = \
-                    render(cam, self.gaussians, self.cfg.pipeline, torch.tensor(self.cfg.background_color).cuda(),
+                    brdf_render(cam, self.gaussians, self.cfg.pipeline, torch.tensor(self.cfg.background_color).cuda(),
                            scaling_modifier=dpg.get_value("_slider_scaling_modifier"),
                            )["surfel_surf_normal"].permute(1, 2, 0).contiguous()
                     rgb_neigh_normal = 0.5 + (0.5 * rgb_neigh_normal)
@@ -856,7 +856,7 @@ class LocalViewer(Mini3DViewer):
                     # normal_short
                     # rgb_face_index = render(cam, self.gaussians, self.cfg.pipeline, torch.tensor(self.cfg.background_color).cuda(), scaling_modifier=dpg.get_value("_slider_scaling_modifier"), return_alpha_one = True, face_index = dpg.get_value("_slider_face_index"))["render"].permute(1, 2, 0).contiguous()
                     rgb_face_index = \
-                    render(cam, self.gaussians, self.cfg.pipeline, torch.tensor(self.cfg.background_color).cuda(),
+                    brdf_render(cam, self.gaussians, self.cfg.pipeline, torch.tensor(self.cfg.background_color).cuda(),
                            scaling_modifier=dpg.get_value("_slider_scaling_modifier"),
                            )["render"].permute(1, 2, 0).contiguous()
 
@@ -864,7 +864,7 @@ class LocalViewer(Mini3DViewer):
                     # backface culling
                     # rgb_bf_culling = render_bf_culling(cam, self.gaussians, self.cfg.pipeline, torch.tensor(self.cfg.background_color).cuda(), scaling_modifier=dpg.get_value("_slider_scaling_modifier"), return_bf_culling = True)["render"].permute(1, 2, 0).contiguous()
                     rgb_bf_culling = \
-                    render(cam, self.gaussians, self.cfg.pipeline, torch.tensor(self.cfg.background_color).cuda(),
+                    brdf_render(cam, self.gaussians, self.cfg.pipeline, torch.tensor(self.cfg.background_color).cuda(),
                            scaling_modifier=dpg.get_value("_slider_scaling_modifier"),
                            )["render"].permute(1, 2, 0).contiguous()
 
