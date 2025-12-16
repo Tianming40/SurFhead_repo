@@ -48,11 +48,12 @@ def render_set(model_path, name, iteration, views, gaussians, pipeline, backgrou
     for idx, view in enumerate(tqdm(views, desc="Rendering progress")):
         torch.cuda.synchronize()
 
-        render_pkg = brdf_render(view, gaussians, pipeline, background, debug=True)
+        render_pkg = brdf_render(view, gaussians, pipeline, background, speed=False)
 
         torch.cuda.synchronize()
 
         gt = view.original_image[0:3, :, :]
+        gt_mask = view.original_mask[0:1, :, :]
         torchvision.utils.save_image(render_pkg["render"], os.path.join(render_path, '{0:05d}'.format(idx) + ".png"))
         torchvision.utils.save_image(gt, os.path.join(gts_path, '{0:05d}'.format(idx) + ".png"))
         for k in render_pkg.keys():
@@ -65,13 +66,48 @@ def render_set(model_path, name, iteration, views, gaussians, pipeline, backgrou
             if k == "alpha":
 
                 img = apply_depth_colormap(img[0][..., None], min=0., max=1.).permute(2, 0, 1)
+            elif k == "surfel_rend_alpha" or k == "surfel_surf_depth" or k == "render_rend_dist":
+                    # img: [1, H, W] → [3, H, W]
+                img = img.repeat(3, 1, 1)
+
 
             elif k == "depth":
                 img = apply_depth_colormap(-img[0][..., None]).permute(2, 0, 1)
 
             elif "normal" in k:
                 img = 0.5 + 0.5 * img
+            elif k == "surfel_rend_normal":
+                img_vis = 0.5 + 0.5 * img
+                mask = gt_mask.repeat(3, 1, 1).cpu()
+                img_vis = img_vis * mask + (1 - mask)
 
+                torchvision.utils.save_image(
+                    img_vis,
+                    os.path.join(save_path, f'{idx:05d}.png')
+                )
+                np.save(
+                    os.path.join(save_path, f'{idx:05d}.npy'),
+                    img.numpy()
+                )
+                continue
+            elif k == "surfel_surf_normal":
+
+                normal = render_pkg[k].detach().cpu().float()
+
+
+                normal_vis = 0.5 + 0.5 * normal
+
+
+                torchvision.utils.save_image(
+                    normal_vis,
+                    os.path.join(save_path, f'{idx:05d}.png')
+                )
+
+                np.save(
+                    os.path.join(save_path, f'{idx:05d}.npy'),
+                    normal.numpy()
+                )
+                continue
             elif img.shape[0] not in [1, 3]:
 
                 print(f"Skipping {k} with shape {img.shape}")
