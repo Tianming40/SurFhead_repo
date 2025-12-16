@@ -5,7 +5,7 @@
 # related documentation without an express license agreement from Toyota Motor Europe NV/SA
 # is strictly prohibited.
 #
-
+import os
 import json
 import math
 import tyro
@@ -27,7 +27,7 @@ from gaussian_renderer import render, brdf_render
 from mesh_renderer import NVDiffRenderer
 from utils.image_utils import apply_depth_colormap
 from utils.graphics_utils import getWorld2View2, getProjectionMatrix, fov2focal, get_rays
-
+from submodules.nvdiffrec import save_env_map, load_env
 
 @dataclass
 class PipelineConfig:
@@ -57,8 +57,10 @@ class Config(Mini3DViewerConfig):
     """Pipeline settings for gaussian splatting rendering"""
     cam_convention: Literal["opengl", "opencv"] = "opencv"
     """Camera convention"""
-    point_path: Optional[Path] = None
+    point_path: Optional[Path] = Path("output/point_cloud/iteration_20000/point_cloud.ply")
     """Path to the gaussian splatting file"""
+    env_path: Optional[Path] =  None
+
     motion_path: Optional[Path] = None
     """Path to the motion file (npz)"""
     sh_degree: int = 3
@@ -135,7 +137,14 @@ class LocalViewer(Mini3DViewer):
             else:
                 raise FileNotFoundError(f'{self.cfg.point_path} does not exist.')
         if self.cfg.pipeline.brdf and self.cfg.pipeline.brdf_mode == "envmap":
-            self.gaussians.brdf_mlp.build_mips()
+                if self.cfg.env_path is None:
+                    iteration_name = self.cfg.point_path.parent.name  # iteration_20000
+                    output_root = self.cfg.point_path.parents[2]  # output/
+                    env_path = output_root / "brdf_mlp" / iteration_name/"brdf_mlp.hdr"
+                else:
+                    env_path = self.cfg.env_path
+                self.gaussians.brdf_mlp = load_env(env_path, scale=1.0)
+                print(f"Load envmap from: {env_path}")
 
     def refresh_stat(self):
         if self.last_time_fresh is not None:
