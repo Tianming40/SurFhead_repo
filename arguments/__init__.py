@@ -94,9 +94,6 @@ class PipelineParams(ParamGroup):
         self.spec_only_eyeball = False
 
         self.brdf = True
-        self.brdf_dim = 3
-        self.brdf_mode = "envmap"
-        self.brdf_envmap_res = 64
         super().__init__(parser, "Pipeline Parameters")
 
     def extract(self, args):

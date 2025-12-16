@@ -61,19 +61,19 @@ def render_set(model_path, name, iteration, views, gaussians, pipeline, backgrou
             save_path = os.path.join(model_path, name, "ours_{}".format(iteration), k)
             makedirs(save_path, exist_ok=True)
             img = render_pkg[k].detach().cpu().float()
-            # alpha 通道处理
+
             if k == "alpha":
-                # surfel_rend_alpha 是 [1,H,W]，保持通道为 1
+
                 img = apply_depth_colormap(img[0][..., None], min=0., max=1.).permute(2, 0, 1)
-            # depth 可视化
+
             elif k == "depth":
                 img = apply_depth_colormap(-img[0][..., None]).permute(2, 0, 1)
-            # normal 通道处理 [-1,1] -> [0,1]
+
             elif "normal" in k:
                 img = 0.5 + 0.5 * img
-            # 其他 3 通道图直接保持
+
             elif img.shape[0] not in [1, 3]:
-                # 如果不是 1 或 3 通道，跳过
+
                 print(f"Skipping {k} with shape {img.shape}")
                 continue
             torchvision.utils.save_image(img, os.path.join(save_path, '{0:05d}.png'.format(idx)))
