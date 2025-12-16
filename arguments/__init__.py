@@ -136,10 +136,10 @@ class OptimizationParams(ParamGroup):
         self.lambda_dssim = 0.2
         self.lambda_xyz = 1e-2
         self.threshold_xyz = 1.
-        self.metric_xyz = False
+        self.metric_xyz = True
         self.lambda_scale = 1.
         self.threshold_scale = 0.6
-        self.metric_scale = False
+        self.metric_scale = True
         self.lambda_dynamic_offset = 0.
         self.lambda_laplacian = 0.
         self.lambda_dynamic_offset_std = 0  #1.
@@ -149,8 +149,8 @@ class OptimizationParams(ParamGroup):
         #! for 2dgs
         self.percent_dense = 0.01
         self.lambda_dssim = 0.2
-        self.lambda_dist = 0.  # 100.0
-        self.lambda_normal = 0.  # 0.05
+        self.lambda_dist = 100  # 100.0
+        self.lambda_normal = 0.05  # 0.05
         self.opacity_cull = 0.05
         
         #! for binding inheritance
@@ -159,7 +159,7 @@ class OptimizationParams(ParamGroup):
 
         self.densification_type = 'arithmetic_mean'
 
-        self.lambda_eye_alpha = 0.
+        self.lambda_eye_alpha = 0.1
 
         self.specular_lr_max_steps = 300_000
 
