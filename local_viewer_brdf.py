@@ -46,6 +46,9 @@ class PipelineConfig:
     amplify_teeth_grad = False
     detach_boundary = False
     brdf = True
+    brdf_dim = 3
+    brdf_mode = "envmap"
+    brdf_envmap_res = 64
 
 
 @dataclass
