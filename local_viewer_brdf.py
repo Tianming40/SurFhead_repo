@@ -152,7 +152,7 @@ class LocalViewer(Mini3DViewer):
                     [0, 0, 0, 1]
                 ], device='cuda', dtype=torch.float32).unsqueeze(0)
                 self.gaussians.brdf_mlp.xfm(rotation_matrix)
-                print(f"Load envmap from: {env_path}")
+                print(f"Load envmap from: {env_path} and rotation {theta}" )
 
     def refresh_stat(self):
         if self.last_time_fresh is not None:
