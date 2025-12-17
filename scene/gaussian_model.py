@@ -670,7 +670,7 @@ class GaussianModel:
         f_dc = self._features_dc.detach().transpose(1, 2).flatten(
             start_dim=1).contiguous().cpu().numpy() if not self.brdf else self._features_dc.detach().cpu().numpy()
         f_rest = self._features_rest.detach().transpose(1, 2).flatten(start_dim=1).contiguous().cpu().numpy() if not ((
-                    self.brdf and self.brdf_mode == "envmap" and self.brdf_dim == 0)) else self._features_rest.detach().cpu().numpy()
+                    self.brdf and self.brdf_mode == "envmap" and self.brdf_dim == 0)) else self._features_rest.detach().cpu().numpy().squeeze(-1)
 
         opacities = self._opacity.detach().cpu().numpy()
         scale = self._scaling.detach().cpu().numpy()

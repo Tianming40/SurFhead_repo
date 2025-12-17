@@ -108,7 +108,7 @@ class OptimizationParams(ParamGroup):
     def __init__(self, parser):
         # 3D Gaussians
         self.iterations = 600_000  # 30_000 (original)
-        self.brdf_iterations = 300000
+        self.brdf_iterations = 300
         self.position_lr_init = 0.005  # (scaled up according to mean triangle scale)  #0.00016 (original)#! *1/0.032
         self.position_lr_final = 0.00005  # (scaled up according to mean triangle scale) # 0.0000016 (original)
         self.position_lr_delay_mult = 0.01
