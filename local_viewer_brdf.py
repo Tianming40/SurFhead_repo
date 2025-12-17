@@ -144,7 +144,7 @@ class LocalViewer(Mini3DViewer):
                 else:
                     env_path = self.cfg.env_path
                 self.gaussians.brdf_mlp = load_env(env_path, scale=1.0)
-                theta = - np.pi
+                theta = - 0.5*np.pi
                 rotation_matrix = torch.tensor([
                     [np.cos(theta), 0, np.sin(theta), 0],
                     [0, 1, 0, 0],
