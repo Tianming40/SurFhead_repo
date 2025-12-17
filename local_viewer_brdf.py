@@ -833,7 +833,7 @@ class LocalViewer(Mini3DViewer):
                     rgb_splatting = \
                     brdf_render(cam, self.gaussians, self.cfg.pipeline, torch.tensor(self.cfg.background_color).cuda(),
                            scaling_modifier=dpg.get_value("_slider_scaling_modifier"),
-                           )["render"].contiguous()
+                           )["render"].permute(1, 2, 0).contiguous()
                     # opacity
                     # override_color = torch.ones_like(self.gaussians._xyz).cuda()
                     # background_color = torch.tensor(self.cfg.background_color).cuda() * 0
