@@ -48,6 +48,23 @@ def render_set(model_path, name, iteration, views, gaussians, pipeline, backgrou
     for idx, view in enumerate(tqdm(views, desc="Rendering progress")):
         torch.cuda.synchronize()
 
+
+        #########################################################
+        theta =  np.pi
+        rotation_matrix = torch.tensor([
+            [np.cos(theta), 0, np.sin(theta), 0],
+            [0, 1, 0, 0],
+            [-np.sin(theta), 0, np.cos(theta), 0],
+            [0, 0, 0, 1]
+        ], device='cuda', dtype=torch.float32).unsqueeze(0)
+        gaussians.brdf_mlp.xfm(rotation_matrix)
+
+        #############################################3
+
+
+
+
+
         render_pkg = brdf_render(view, gaussians, pipeline, background, speed=False)
 
         torch.cuda.synchronize()
