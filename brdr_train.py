@@ -52,7 +52,7 @@ def brdf_training(dataset, opt, pipe, testing_iterations, saving_iterations, che
             n_shape = 300
             n_expr = 100
 
-        gaussians = FlameGaussianModel(sh_degree=-1, sg_degree=dataset.sg_degree, brdf_dim=3,
+        gaussians = FlameGaussianModel(sh_degree=-1, sg_degree=dataset.sg_degree, brdf_dim=0,
                                        brdf_mode=dataset.brdf_mode,
                                        brdf_envmap_res=dataset.brdf_envmap_res,
                                        disable_flame_static_offset=dataset.disable_flame_static_offset,
